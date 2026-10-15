@@ -1,6 +1,6 @@
 package lock.module;
 
-import lock.LockClient;
+import lock.Core;
 import lock.render.Colors;
 import lock.setting.ColorSetting;
 import lock.setting.ModeSetting;
@@ -19,7 +19,7 @@ public final class Esp {
 
     /** RGB (no alpha) for an entity under the module's chosen colour mode. */
     public static int color(Entity e, ModeSetting mode) {
-        int accent = LockClient.modules.general.accent.get();
+        int accent = Core.modules.general.accent.get();
         switch (mode.get()) {
             case "Team" -> {
                 if (e.getTeam() instanceof PlayerTeam t && t.getColor().getColor() != null) {
@@ -37,7 +37,7 @@ public final class Esp {
     }
 
     public static boolean targets(Entity e) {
-        return LockClient.modules.general.valid(e);
+        return Core.modules.general.valid(e);
     }
 
     public static boolean isPlayer(Entity e) { return e instanceof Player; }

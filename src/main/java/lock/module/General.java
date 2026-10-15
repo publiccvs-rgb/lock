@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Player;
 
 /** Shared accent colour and target filter used by every entity ESP module. */
 public class General extends Module {
-    public final ColorSetting accent = add(new ColorSetting("Accent", 0xB9A8FF));
+    public final ColorSetting accent = add(new ColorSetting("Accent", 0x14F2BE));
     public final BoolSetting players = add(new BoolSetting("Players", true));
     public final BoolSetting hostiles = add(new BoolSetting("Hostiles", false));
     public final BoolSetting passives = add(new BoolSetting("Passives", false));

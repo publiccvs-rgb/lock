@@ -1,28 +1,10 @@
 # lock.
 
-Minimal visual client for Fabric 1.21.4 (Java 21). Client-side only.
+Minimal visual client for Minecraft 1.21.11. Work in progress.
 
-## Build
-    ./gradlew build        # jar lands in build/libs/lock-0.1.0.jar
-    ./gradlew runClient    # dev client
+- `loader/` - frameless loading window (Swing). Build: `javac -d out src/lock/loader/*.java && cp res/wordmark.png out/`, run: `java -cp out lock.loader.Loader`. Prebuilt: `dist/lock-loader.jar`.
+- `src/main/java/lock/gui` - in-game menu (Mojang-mapped 1.21.11). `GuiView` holds layout/animation/input and draws through `Gfx`, so `tools/GuiPreview.java` can render it headless.
+- `src/main/java/lock/module`, `setting` - modules and their settings.
+- `src/main/java/lock/render` - ESP rendering; being ported to the 1.21.11 render pipeline (excluded from the build for now).
 
-Drop the jar plus Fabric API into `mods/`.
-
-## Menu
-`Right Shift` opens the menu. Left click toggles a module, right click folds its settings open.
-Config is saved to `config/lock.json`.
-
-## Modules
-| Module | What it does |
-|---|---|
-| General | Accent colour + who gets drawn (players, mobs, invisible, NPC filter, teammates, range) |
-| Boxes | Thin corner/outline boxes, soft halo, optional faint fill, fade with distance |
-| Tracers | Gradient lines that fade in from the crosshair |
-| Charms | Tinted see-through player models |
-| Outlines | Vanilla glow outline, coloured per mode |
-| Storage | Chests, trapped, ender, barrels, shulkers (+furnaces/hoppers) through walls |
-| Health | 30x4px pill above heads: damage trail, absorption, optional name/number, hides vanilla tag |
-| Items | Tiered highlight on valuable drops |
-| Fullbright | Client-side night vision |
-
-Colour modes: Accent, Team, Health, Fade (slow pulse).
+Menu text uses Arial, read from the system's fonts (not bundled); falls back to Minecraft's font.

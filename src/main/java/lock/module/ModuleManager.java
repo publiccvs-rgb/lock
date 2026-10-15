@@ -2,13 +2,14 @@ package lock.module;
 
 import com.google.gson.*;
 import lock.setting.Setting;
-import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ModuleManager {
     public final General general = new General();
@@ -21,10 +22,19 @@ public class ModuleManager {
     public final ItemEsp items = new ItemEsp();
     public final Fullbright fullbright = new Fullbright();
 
+    /** Menu panel layout: id -> {x, y, collapsed(0/1)}. */
+    public final Map<String, float[]> guiLayout = new LinkedHashMap<>();
+
     public final List<Module> all = List.of(general, boxes, tracers, charms, outlines, storage, health, items, fullbright);
 
-    private final Path file = FabricLoader.getInstance().getConfigDir().resolve("lock.json");
+    private final Path file = configFile();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
+    private static Path configFile() {
+        Path dir = Path.of(System.getProperty("user.home"), ".lock");
+        try { Files.createDirectories(dir); } catch (Exception ignored) {}
+        return dir.resolve("config.json");
+    }
 
     public void tick() { for (Module m : all) if (m.enabled()) m.onTick(); }
 
@@ -32,6 +42,12 @@ public class ModuleManager {
         if (!Files.exists(file)) return;
         try (Reader r = Files.newBufferedReader(file)) {
             JsonObject root = JsonParser.parseReader(r).getAsJsonObject();
+            if (root.has("_gui")) {
+                for (var e : root.getAsJsonObject("_gui").entrySet()) {
+                    JsonArray a = e.getValue().getAsJsonArray();
+                    guiLayout.put(e.getKey(), new float[] {a.get(0).getAsFloat(), a.get(1).getAsFloat(), a.get(2).getAsFloat()});
+                }
+            }
             for (Module m : all) {
                 if (!root.has(m.name)) continue;
                 JsonObject o = root.getAsJsonObject(m.name);
@@ -53,6 +69,13 @@ public class ModuleManager {
             for (Setting<?> s : m.settings) o.add(s.name, s.save());
             root.add(m.name, o);
         }
+        JsonObject gui = new JsonObject();
+        for (var e : guiLayout.entrySet()) {
+            JsonArray a = new JsonArray();
+            for (float f : e.getValue()) a.add(f);
+            gui.add(e.getKey(), a);
+        }
+        root.add("_gui", gui);
         try (Writer w = Files.newBufferedWriter(file)) {
             GSON.toJson(root, w);
         } catch (Exception ignored) {}

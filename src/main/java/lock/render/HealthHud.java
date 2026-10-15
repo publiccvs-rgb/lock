@@ -1,6 +1,6 @@
 package lock.render;
 
-import lock.LockClient;
+import lock.Core;
 import lock.module.Esp;
 import lock.module.Health;
 import net.minecraft.client.DeltaTracker;
@@ -33,14 +33,14 @@ public final class HealthHud {
 
     public static void render(GuiGraphics g, DeltaTracker dt) {
         Minecraft mc = Minecraft.getInstance();
-        Health cfg = LockClient.modules.health;
+        Health cfg = Core.modules.health;
         if (!cfg.enabled() || mc.level == null || mc.player == null || mc.options.hideGui) return;
 
         long now = System.nanoTime();
         float delta = Math.min((now - lastFrame) / 1e9f, 0.1f);
         lastFrame = now;
         float pt = dt.getGameTimeDeltaPartialTick(true);
-        float range = (float) (double) LockClient.modules.general.range.get();
+        float range = (float) (double) Core.modules.general.range.get();
 
         for (Entity e : mc.level.entitiesForRendering()) {
             if (!(e instanceof LivingEntity le) || !Esp.targets(e)) continue;
@@ -68,8 +68,8 @@ public final class HealthHud {
             else st.trail = Math.max(st.shown, st.trail - delta * 0.35f);
 
             int c = switch (cfg.color.get()) {
-                case "Accent" -> LockClient.modules.general.accent.get();
-                case "Team" -> Esp.color(e, LockClient.modules.boxes.color);
+                case "Accent" -> Core.modules.general.accent.get();
+                case "Team" -> Esp.color(e, Core.modules.boxes.color);
                 default -> Colors.health(frac);
             };
 

@@ -1,21 +1,15 @@
 plugins {
-    id 'fabric-loom' version '1.10.5'
+    id 'fabric-loom' version '1.13.6'
 }
 
 version = project.mod_version
 group = 'lock'
-base { archivesName = 'lock' }
 
+// Loom is used purely to compile against the Mojang-named 1.21.11 API.
+// The shipped artifact is built by :injector, which remaps these classes to the runtime names.
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-}
-
-processResources {
-    inputs.property 'version', project.version
-    filesMatching('fabric.mod.json') { expand 'version': project.version }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -23,13 +17,8 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
-loom {
-    runs {
-        demo {
-            client()
-            name = 'Demo'
-            property 'lock.demo', 'true'
-            programArgs '--width', '1920', '--height', '1080'
-        }
-    }
+// Rendering/hook layers are mid-port to the 1.21.11 pipeline; keep them out of the build until then.
+sourceSets.main.java {
+    exclude 'lock/render/Draw.java', 'lock/render/WorldEsp.java', 'lock/render/HealthHud.java',
+            'lock/render/CharmLayers.java', 'lock/render/Projection.java', 'lock/agent/**'
 }

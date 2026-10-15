@@ -1,6 +1,6 @@
 package lock.render;
 
-import lock.LockClient;
+import lock.Core;
 import lock.module.*;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
@@ -20,7 +20,7 @@ public final class WorldEsp {
     public static void render(WorldRenderContext ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
-        ModuleManager m = LockClient.modules;
+        ModuleManager m = Core.modules;
         Vec3 cam = ctx.camera().getPosition();
         float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(true);
 
