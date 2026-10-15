@@ -10,14 +10,15 @@ import java.util.*;
 /**
  * Menu layout, animation, drawing and input.
  *
- * Structure follows a classic column click-GUI (sidebar + module columns). The look is navy glass: gradient
- * surfaces with a hairline border, a faint accent glow along the top edge, inset rounded row highlights, and
- * two-line settings rows (bold title, muted description) with the control on the right. Animation is exponential
+ * Structure follows a classic column click-GUI (sidebar + module columns), the look flat and dark like the
+ * reference: solid near-black panels with no gradients or glass, thin 1px dividers for structure, flat solid
+ * accent fills on active rows, and a horizontal named-scheme strip for colour settings. Animation is exponential
  * smoothing (frame-rate independent); the hot path allocates nothing - hit regions live in pooled arrays and
  * per-module / per-setting state is created once.
  */
 public final class GuiView {
-    static final int PW = 196, ROW = 23, HEAD = 25, GAP = 6, MARGIN = 8, PR = 7, IN = 5, SROW = 26, SIDEW = 132;
+    static final int PW = 196, ROW = 23, HEAD = 25, GAP = 6, MARGIN = 8, PR = 4, IN = 5, SROW = 26, SIDEW = 132;
+    static final int SCHEME_ROW = 40;
     static final float TITLE_SCALE = 0.92f, DESC_SCALE = 0.66f;
 
     // ---- animation primitive -------------------------------------------------
@@ -83,6 +84,8 @@ public final class GuiView {
     private float dragDX, dragDY;
     private NumSetting dragNum;
     private float dragNumX, dragNumW;
+    private ColorSetting dragScheme;
+    private float dragSchemeX, dragSchemeW;
     private Panel hoverPanel;
     private BindSetting listening;
     private int sw = 480, sh = 270;
@@ -205,14 +208,10 @@ public final class GuiView {
 
     // ------------------------------------------------------------------ chrome
 
-    /** Glass panel: contact shadow, hairline border, vertical gradient body, accent glow along the top edge. */
-    private void frame(Gfx g, float x, float y, float w, float h, int top, int bot, int acc) {
-        g.round(x - 3, y + 1, w + 6, h + 6, PR + 3, 0x10000000);
-        g.round(x - 1.5f, y + 1, w + 3, h + 3, PR + 1.5f, 0x22000000);
-        g.round(x, y, w, h, PR, Theme.BORDER);
-        g.gradient(x + 1, y + 1, w - 2, h - 2, PR - 1, top, bot);
-        g.gradient(x + 1, y + 1, w - 2, Math.min(22, h - 2), PR - 1, PR - 1, 0, 0, Theme.alpha(acc, 0.10f), Theme.alpha(acc, 0f));
-        g.rect(x + PR, y + 1, w - 2 * PR, 1, 0x16FFFFFF);
+    /** Flat panel: a soft contact shadow, a 1px edge, and a solid fill - no gradients. */
+    private void frame(Gfx g, float x, float y, float w, float h, int fill) {
+        g.round(x - 2, y + 1, w + 4, h + 4, PR + 2, 0x1A000000);
+        g.round(x, y, w, h, PR, fill);
     }
 
     private void drawSidebar(Gfx g, Panel p, float x, float y, int mx, int my) {
@@ -220,60 +219,57 @@ public final class GuiView {
         float w = p.w;
         float h = 26 + 2 * ROW + 16 + ROW + 22;
         p.h = h;
-        frame(g, x, y, w, h, Theme.SIDE_TOP, Theme.SIDE_BOT, acc);
+        frame(g, x, y, w, h, Theme.SIDEBAR);
         add(T_PANEL, x, y, w, h, null, 0, p);
 
         g.text("lock", x + 10, y + 6.5f, 0xFFFFFFFF, 1.5f, true);
         g.text(".", x + 10 + g.width("lock", 1.5f, true), y + 6.5f, acc, 1.5f, true);
         Icons.search(g, x + w - 34, y + 8, Theme.DIM);
         Icons.gear(g, x + w - 19, y + 8, Theme.DIM);
-        g.rect(x + 8, y + 25, w - 16, 1, Theme.RULE);
+        g.rect(x + 8, y + 25, w - 16, 1, Theme.DIVIDER);
 
         float iy = y + 28;
         String[] names = {"Render", "Settings"};
         for (int i = 0; i < 2; i++) {
             boolean hov = hoverPanel == p && inside(mx, my, x, iy, w, ROW);
-            if (hov) g.round(x + IN, iy + 1, w - 2 * IN, ROW - 2, 5, Theme.HOVER);
+            if (hov) g.rect(x, iy, w, ROW, Theme.ROW_HOVER);
             if (i == 0) Icons.eye(g, x + 12, iy + 7, acc); else Icons.gear(g, x + 12, iy + 7, acc);
             g.text(names[i], x + 30, iy + 7, acc, 0.95f, true);
             Icons.chevron(g, x + w - 14, iy + 9, 2, Theme.DIM);
             iy += ROW;
         }
 
-        g.rect(x + 1, iy + 1, w - 2, 14, Theme.alpha(0xFF000000, 0.18f));
+        g.rect(x, iy, w, 14, 0xFF0D0D0D);
         g.text("MISC", x + 12, iy + 5.5f, Theme.DIM, 0.6f, true);
         iy += 16;
 
         boolean hov = hoverPanel == p && inside(mx, my, x, iy, w, ROW);
-        if (hov) g.round(x + IN, iy + 1, w - 2 * IN, ROW - 2, 5, Theme.HOVER);
+        if (hov) g.rect(x, iy, w, ROW, Theme.ROW_HOVER);
         g.text("Profiles", x + 12, iy + 7, acc, 0.95f, true);
         String chip = "default";
         float cw = g.width(chip, 0.7f) + 10;
-        g.round(x + w - cw - 24, iy + 5.5f, cw, 12, 4, Theme.FIELD_BORDER);
-        g.round(x + w - cw - 23, iy + 6.5f, cw - 2, 10, 3, Theme.FIELD);
+        g.round(x + w - cw - 24, iy + 5.5f, cw, 12, 3, Theme.CHIP);
         g.text(chip, x + w - cw - 18, iy + 8.7f, Theme.LABEL, 0.7f);
         Icons.chevron(g, x + w - 14, iy + 9, 2, Theme.DIM);
         iy += ROW;
 
-        g.rect(x + 8, iy, w - 16, 1, Theme.RULE);
+        g.rect(x + 8, iy, w - 16, 1, Theme.DIVIDER);
         Icons.user(g, x + 12, iy + 7, Theme.DIM);
         Icons.star(g, x + w - 38, iy + 7, Theme.DIM);
         Icons.bars(g, x + w - 22, iy + 7, Theme.DIM);
     }
 
     private void header(Gfx g, Panel p, float x, float y, int acc, int mx, int my) {
-        g.gradient(x + 1, y + 1, p.w - 2, HEAD - 1, PR - 1, PR - 1, 0, 0, Theme.HEAD_TOP, Theme.HEAD_BOT);
-        g.gradient(x + 1, y + 1, p.w - 2, 14, PR - 1, PR - 1, 0, 0, Theme.alpha(acc, 0.12f), Theme.alpha(acc, 0f));
-        g.rect(x + PR, y + 1, p.w - 2 * PR, 1, 0x1CFFFFFF);
-        g.rect(x + 1, y + HEAD - 1, p.w - 2, 1, Theme.RULE);
+        g.roundEx(x, y, p.w, HEAD, PR, PR, 0, 0, Theme.HEADER);
+        g.rect(x, y + HEAD - 1, p.w, 1, Theme.DIVIDER);
         switch (p.id) {
-            case "render" -> Icons.eye(g, x + 11, y + 7, Theme.TITLE);
-            case "settings" -> Icons.gear(g, x + 10, y + 7, Theme.TITLE);
-            default -> Icons.list(g, x + 10, y + 7, Theme.TITLE);
+            case "render" -> Icons.eye(g, x + 11, y + 8, Theme.TITLE);
+            case "settings" -> Icons.gear(g, x + 10, y + 8, Theme.TITLE);
+            default -> Icons.list(g, x + 10, y + 8, Theme.TITLE);
         }
         g.text(p.title, x + 27, y + 8, Theme.TITLE, 0.98f, true);
         float cx = x + p.w - 16;
-        if (p == profiles) Icons.gear(g, cx - 22, y + 7, Theme.DIM);
+        if (p == profiles) Icons.gear(g, cx - 22, y + 8, Theme.DIM);
         boolean over = hoverPanel == p && inside(mx, my, cx - 8, y, 24, HEAD);
         Icons.chevron(g, cx, y + 10f, p.expand.v > 0.5f ? -1 : 1, over ? Theme.TITLE : Theme.DIM);
     }
@@ -289,10 +285,10 @@ public final class GuiView {
         if (p.scroll.t > maxScroll) p.scroll.t = maxScroll;
         if (p.scroll.t < 0) p.scroll.t = 0;
         float visible = p.viewH * p.expand.v;
-        float h = HEAD + visible + (visible > 1 ? 4 : 0);
+        float h = HEAD + visible;
         p.h = h;
 
-        frame(g, x, y, p.w, h, Theme.PANEL_TOP, Theme.PANEL_BOT, acc);
+        frame(g, x, y, p.w, h, Theme.PANEL);
         add(T_PANEL, x, y, p.w, h, null, 0, p);
         header(g, p, x, y, acc, mx, my);
         add(T_DRAG, x, y, p.w - 28, HEAD, p, 0, p);
@@ -344,22 +340,19 @@ public final class GuiView {
             if (hov) newTip = m.desc;
 
             float on = s.on.v, open = s.open.v, hv = s.hover.v;
-            float rx = x + IN, rw = p.w - 2 * IN, ry = y + 1, rh = ROW - 2;
-            if (hv > 0.01f) g.round(rx, ry, rw, rh, 6, Theme.alpha(0xFFFFFFFF, 0.06f * hv));
-            if (open > 0.01f && on < 0.99f) g.round(rx, ry, rw, rh, 6, Theme.alpha(acc, 0.10f * open * (1 - on)));
-            if (on > 0.004f) {
-                g.round(rx - 1, ry, rw + 2, rh + 2, 7, Theme.alpha(acc, 0.12f * on));
-                g.gradient(rx, ry, rw, rh, 6, Theme.alpha(Theme.brighten(acc, 0.14f), on), Theme.alpha(Theme.darken(acc, 0.12f), on));
-                g.rect(rx + 5, ry, rw - 10, 1, Theme.alpha(0xFFFFFFFF, 0.28f * on));
-            }
+            if (hv > 0.01f) g.rect(x, y, p.w, ROW, Theme.alpha(Theme.ROW_HOVER, hv));
+            if (on > 0.004f) g.rect(x, y, p.w, ROW, Theme.alpha(acc, on));
+            if (on > 0.004f) g.rect(x, y, 2.5f, ROW, Theme.alpha(Theme.brighten(acc, 0.3f), on));
 
-            g.text(m.name, x + IN + 8, y + 7.5f, Theme.mix(Theme.TEXT, Theme.DARK, on), 0.98f, on > 0.5f);
-            int dotC = Theme.mix(0xFFB7C6D8, Theme.DARK, on);
+            int ink = Theme.mix(Theme.TEXT, Theme.inkOn(acc), on);
+            drawModuleIcon(g, m.name, x + IN + 2, y + 6, Theme.mix(0xFF707070, ink, on));
+            g.text(m.name, x + IN + 15, y + 7.5f, ink, 0.96f, on > 0.5f);
+            int dotC = Theme.mix(0xFF7A7A7A, ink, on);
             float reveal = Math.max(hv, open * 0.8f);
             if (reveal > 0.01f) {
-                int c = Theme.alpha(Theme.mix(0xFF7F93AB, Theme.DARK, on), reveal);
-                Icons.star(g, x + p.w - 46, y + 7, c);
-                Icons.keybind(g, x + p.w - 33, y + 6.5f, c);
+                int c = Theme.mix(0xFF7A7A7A, ink, on);
+                Icons.star(g, x + p.w - 46, y + 7, Theme.alpha(c, reveal));
+                Icons.keybind(g, x + p.w - 33, y + 6.5f, Theme.alpha(c, reveal));
             }
             Icons.dots(g, x + p.w - 15, y + 7.5f, dotC);
 
@@ -369,10 +362,10 @@ public final class GuiView {
 
             if (sh2 > 0.5f) {
                 float top = y, bot = y + sh2;
-                g.round(x + IN - 1, top, p.w - 2 * IN + 2, sh2, 6, Theme.alpha(Theme.INSET, 0.78f));
-                g.clip(x + IN - 1, Math.max(top, clipT), p.w - 2 * IN + 2, Math.min(bot, clipB) - Math.max(top, clipT));
+                g.rect(x, top, p.w, sh2, Theme.INSET);
+                g.clip(x, Math.max(top, clipT), p.w, Math.min(bot, clipB) - Math.max(top, clipT));
                 float sy = y + 2;
-                for (Setting<?> st : m.settings) sy += drawSetting(g, p, st, x + IN - 1, sy, Math.max(top, clipT), Math.min(bot, clipB), mx, my, acc, true);
+                for (Setting<?> st : m.settings) sy += drawSetting(g, p, st, x, sy, Math.max(top, clipT), Math.min(bot, clipB), mx, my, acc, true);
                 g.unclip();
                 y += sh2;
             }
@@ -380,8 +373,22 @@ public final class GuiView {
         tipCandidate = newTip.isEmpty() ? tipCandidate : newTip;
     }
 
+    /** Per-module icon, matching the reference module list's icon-per-row treatment. */
+    private static void drawModuleIcon(Gfx g, String name, float x, float y, int c) {
+        switch (name) {
+            case "NameTags" -> Icons.nametag(g, x, y, c);
+            case "Tracers" -> Icons.tracerLine(g, x, y, c);
+            case "Fullbright" -> Icons.sun(g, x, y, c);
+            case "StorageESP", "ItemESP" -> Icons.box(g, x, y, c);
+            case "BaseFinder" -> Icons.grid(g, x + 1, y + 1, c);
+            case "Ambience" -> Icons.globe(g, x, y, c);
+            case "Settings" -> Icons.gear(g, x, y, c);
+            default -> Icons.person(g, x, y, c);
+        }
+    }
+
     // ---- settings rows ----
-    private static float settingHeight(Setting<?> s) { return SROW; }
+    private static float settingHeight(Setting<?> s) { return s instanceof ColorSetting ? SCHEME_ROW : SROW; }
 
     private float settingsHeight(Module m) {
         float h = 6;
@@ -403,23 +410,28 @@ public final class GuiView {
 
     /** One setting row. {@code x}/width: the row spans the panel (or the inset block inside a module). */
     private float drawSetting(Gfx g, Panel p, Setting<?> s, float x, float y, float clipT, float clipB, int mx, int my, int acc, boolean inset) {
-        float h = SROW;
+        float h = settingHeight(s);
         if (y + h < clipT || y > clipB) return h;
-        float w = inset ? p.w - 2 * IN + 2 : p.w;
+        float w = p.w;
         float lx = x + 9, rx = x + w - 9;
         boolean hov = hoverPanel == p && inside(mx, my, x, Math.max(y, clipT), w, Math.min(y + h, clipB) - Math.max(y, clipT)) && my >= y && my < y + h;
         SetState st = state(s);
         st.hover.t = hov ? 1f : 0f;
 
         // hairline between rows
-        g.rect(x + 8, y + h - 1, w - 16, 1, Theme.RULE);
+        g.rect(x + 8, y + h - 1, w - 16, 1, Theme.DIVIDER);
+
+        if (s instanceof ColorSetting c) {
+            drawScheme(g, c, x, y, w, h, hov, clipT, clipB, p);
+            return h;
+        }
 
         float cw = controlWidth(s);
         float textMax = w - 18 - cw - 8;
         boolean hasDesc = !s.desc.isEmpty();
         float ty = hasDesc ? y + 5 : y + 9.5f;
         if (st.titleW != textMax) { st.title = fitBold(g, s.name, TITLE_SCALE, textMax); st.titleW = textMax; }
-        g.text(st.title, lx, ty, Theme.mix(Theme.TITLE, 0xFFFFFFFF, st.hover.v), TITLE_SCALE, true);
+        g.text(st.title, lx, ty, Theme.mix(Theme.TEXT, Theme.TITLE, st.hover.v), TITLE_SCALE, true);
         if (hasDesc) {
             if (st.fitW != textMax) { st.fit = fit(g, s.desc, DESC_SCALE, textMax); st.fitW = textMax; }
             g.text(st.fit, lx, y + 16, Theme.DESC, DESC_SCALE);
@@ -431,9 +443,7 @@ public final class GuiView {
             if (!st.init) { st.on.snap(b.get() ? 1 : 0); st.init = true; }
             st.on.t = b.get() ? 1 : 0;
             float a = st.on.v, tw = 21, th = 11, tx = rx - tw, tyy = cy - th / 2;
-            if (a > 0.01f) g.round(tx - 1.5f, tyy - 1.5f, tw + 3, th + 3, 7, Theme.alpha(acc, 0.20f * a));
-            g.round(tx, tyy, tw, th, 5.5f, Theme.mix(Theme.FIELD_BORDER, acc, a));
-            g.round(tx + 1, tyy + 1, tw - 2, th - 2, 4.5f, Theme.mix(Theme.FIELD, Theme.mix(acc, Theme.darken(acc, 0.12f), 0.5f), a));
+            g.round(tx, tyy, tw, th, 5.5f, Theme.mix(Theme.TOGGLE_OFF, acc, a));
             g.round(tx + 1.5f + 10 * a, tyy + 1.5f, 8, 8, 4, 0xFFFFFFFF);
             add(T_BOOL, x, y, w, h - 1, b, 0, p, clipT, clipB);
         } else if (s instanceof ModeSetting m) {
@@ -452,19 +462,10 @@ public final class GuiView {
             g.text(st.fmt, bx + (bw - g.width(st.fmt, 0.85f)) / 2f, cy - 3.8f, Theme.TEXT, 0.85f);
             float tw = 40, tx = bx - 8 - tw, f = st.val.v;
             g.round(tx, cy - 1.5f, tw, 3, 1.5f, Theme.TRACK);
-            g.gradient(tx, cy - 1.5f, Math.max(3, tw * f), 3, 1.5f, Theme.brighten(acc, 0.1f), Theme.darken(acc, 0.1f));
+            g.round(tx, cy - 1.5f, Math.max(3, tw * f), 3, 1.5f, acc);
             float kr = dragNum == n ? 5.2f : 4.2f;
-            if (dragNum == n) g.round(tx + tw * f - kr - 2, cy - kr - 2, kr * 2 + 4, kr * 2 + 4, kr + 2, Theme.alpha(acc, 0.22f));
-            g.round(tx + tw * f - kr, cy - kr, kr * 2, kr * 2, kr, acc);
-            g.round(tx + tw * f - kr + 2, cy - kr + 2, kr * 2 - 4, kr * 2 - 4, kr - 2, Theme.brighten(acc, 0.35f));
+            g.round(tx + tw * f - kr, cy - kr, kr * 2, kr * 2, kr, 0xFFFFFFFF);
             add(T_SLIDER, tx - 4, y + 2, tw + 8, h - 4, n, 0, p, clipT, clipB);
-        } else if (s instanceof ColorSetting c) {
-            float bw = cw, bx = rx - bw;
-            field(g, bx, cy - 7, bw, 14, hov);
-            g.round(bx + 4, cy - 4, 15, 8, 2.5f, 0xFF000000 | c.get());
-            g.rect(bx + 4, cy - 4, 15, 1, 0x30FFFFFF);
-            Icons.chevron(g, bx + bw - 10, cy - 1.2f, 1, Theme.DIM);
-            add(T_COLOR, bx, y, bw, h - 1, c, 0, p, clipT, clipB);
         } else if (s instanceof BindSetting b) {
             float kw = 36, kx = rx - kw;
             boolean wait = listening == b;
@@ -474,10 +475,9 @@ public final class GuiView {
             add(T_BIND_KEY, kx, y, kw, h - 1, b, 0, p, clipT, clipB);
             // hold / toggle segmented control
             float sw2 = 44, sx = kx - 7 - sw2;
-            g.round(sx, cy - 6.5f, sw2, 13, 6.5f, Theme.FIELD_BORDER);
-            g.round(sx + 1, cy - 5.5f, sw2 - 2, 11, 5.5f, Theme.FIELD);
+            g.round(sx, cy - 6.5f, sw2, 13, 6.5f, Theme.FIELD);
             float segX = b.hold ? sx + 1 : sx + 1 + (sw2 - 2) / 2f;
-            g.round(segX, cy - 5.5f, (sw2 - 2) / 2f, 11, 5.5f, Theme.FIELD_HI);
+            g.round(segX, cy - 5.5f, (sw2 - 2) / 2f, 11, 5.5f, Theme.CHIP);
             g.text("Hold", sx + 5, cy - 3.2f, b.hold ? Theme.TITLE : Theme.DIM, 0.62f);
             g.text("Toggle", sx + 24.5f, cy - 3.2f, b.hold ? Theme.DIM : Theme.TITLE, 0.62f);
             add(T_BIND_MODE, sx, y, sw2, h - 1, b, 0, p, clipT, clipB);
@@ -485,16 +485,40 @@ public final class GuiView {
         return h;
     }
 
+    /** Full-width named-scheme strip: eight flat swatches forming one bar, a white thumb over the selected one. */
+    private void drawScheme(Gfx g, ColorSetting c, float x, float y, float w, float h, boolean hov, float clipT, float clipB, Panel p) {
+        float lx = x + 9, rx = x + w - 9;
+        int idx = Theme.schemeIndex(c.get());
+        if (idx < 0) idx = 0;
+        g.text(c.name, lx, y + 6, Theme.mix(Theme.TEXT, Theme.TITLE, hov ? 1 : 0), TITLE_SCALE, true);
+        String sn = Theme.SCHEME_NAMES[idx];
+        g.text(sn, rx - g.width(sn, 0.78f), y + 6.6f, Theme.LABEL, 0.78f);
+
+        float barY = y + 22, barH = 8, barX = lx, barW = rx - lx;
+        int n = Theme.SCHEME_COLORS.length;
+        float seg = barW / n;
+        g.round(barX, barY, barW, barH, barH / 2, 0xFF000000);
+        for (int i = 0; i < n; i++) {
+            float sx = barX + i * seg;
+            float tl = i == 0 ? barH / 2 : 0, bl = i == 0 ? barH / 2 : 0, tr = i == n - 1 ? barH / 2 : 0, br = i == n - 1 ? barH / 2 : 0;
+            g.roundEx(sx + (i == 0 ? 0 : -0.5f), barY + 1, seg + (i == 0 || i == n - 1 ? 0.5f : 1f), barH - 2, tl, tr, br, bl, 0xFF000000 | Theme.SCHEME_COLORS[i]);
+        }
+        float thumbCx = barX + (idx + 0.5f) * seg;
+        float tr2 = barH / 2f + 2.5f;
+        g.round(thumbCx - tr2, barY + barH / 2f - tr2, tr2 * 2, tr2 * 2, tr2, 0xFFFFFFFF);
+        g.round(thumbCx - tr2 + 2, barY + barH / 2f - tr2 + 2, tr2 * 2 - 4, tr2 * 2 - 4, tr2 - 2, 0xFF000000 | Theme.SCHEME_COLORS[idx]);
+
+        add(T_COLOR, barX - 2, barY - 4, barW + 4, barH + 8, c, 0, p, clipT, clipB);
+    }
+
     private void field(Gfx g, float x, float y, float w, float h, boolean hot) {
-        g.round(x, y, w, h, 3.5f, hot ? Theme.BORDER : Theme.FIELD_BORDER);
-        g.round(x + 1, y + 1, w - 2, h - 2, 2.5f, hot ? Theme.FIELD_HI : Theme.FIELD);
+        g.round(x, y, w, h, 3, hot ? Theme.FIELD_HOVER : Theme.FIELD);
     }
 
     private float controlWidth(Setting<?> s) {
         if (s instanceof BoolSetting) return 21;
         if (s instanceof ModeSetting) return 64;
         if (s instanceof NumSetting) return 78;
-        if (s instanceof ColorSetting) return 36;
         if (s instanceof BindSetting) return 87;
         return 40;
     }
@@ -527,21 +551,17 @@ public final class GuiView {
     private void drawProfilesBody(Gfx g, Panel p, float x, float y, int acc) {
         float bw = (p.w - 20) / 2f;
         float by = y + 7;
-        g.round(x + 8, by, bw, 17, 4.5f, Theme.FIELD_BORDER);
-        g.round(x + 9, by + 1, bw - 2, 15, 3.5f, Theme.FIELD);
-        Icons.plusCircle(g, x + 14, by + 4, acc, Theme.DARK);
+        g.round(x + 8, by, bw, 17, 3, Theme.FIELD);
+        Icons.plusCircle(g, x + 14, by + 4, acc, Theme.inkOn(acc));
         g.text("CREATE NEW", x + 27, by + 5.6f, Theme.TEXT, 0.6f, true);
-        g.round(x + 12 + bw, by, bw, 17, 4.5f, Theme.FIELD_BORDER);
-        g.round(x + 13 + bw, by + 1, bw - 2, 15, 3.5f, Theme.FIELD);
+        g.round(x + 12 + bw, by, bw, 17, 3, Theme.FIELD);
         Icons.globe(g, x + 18 + bw, by + 4, Theme.DIM);
         g.text("PUBLIC", x + 32 + bw, by + 5.6f, Theme.TEXT, 0.6f, true);
 
         float ry = by + 17 + 7;
-        g.round(x + 8, ry - 1, p.w - 16, 21, 6, Theme.alpha(acc, 0.16f));
-        g.gradient(x + 8, ry, p.w - 16, 19, 5, Theme.alpha(Theme.brighten(acc, 0.14f), 1f), Theme.darken(acc, 0.12f));
-        g.rect(x + 14, ry, p.w - 28, 1, 0x48FFFFFF);
-        g.text("default", x + 16, ry + 5.8f, Theme.DARK, 0.98f, true);
-        Icons.dots(g, x + p.w - 21, ry + 5.5f, Theme.DARK);
+        g.round(x + 8, ry, p.w - 16, 21, 3, acc);
+        g.text("default", x + 16, ry + 5.8f, Theme.inkOn(acc), 0.98f, true);
+        Icons.dots(g, x + p.w - 21, ry + 5.5f, Theme.inkOn(acc));
     }
 
     // ---- tooltip ----
@@ -552,9 +572,8 @@ public final class GuiView {
         float w = g.width(tipText, s) + 16, h = 17;
         float tx = Math.min(mx + 12, sw - w - 4), ty = Math.min(my + 16, sh - h - 4);
         float lift = (1f - tip.v) * 3f;
-        g.round(tx - 1.5f, ty + lift - 1, w + 3, h + 3, 6, 0x28000000);
-        g.round(tx, ty + lift, w, h, 5, Theme.BORDER);
-        g.round(tx + 1, ty + lift + 1, w - 2, h - 2, 4, Theme.TIP_BG);
+        g.round(tx - 1, ty + lift - 1, w + 2, h + 2, 4, 0x30000000);
+        g.round(tx, ty + lift, w, h, 3, Theme.TIP_BG);
         g.text(tipText, tx + 8, ty + lift + 5.6f, Theme.TITLE, s);
     }
 
@@ -595,10 +614,10 @@ public final class GuiView {
                 case T_BOOL -> ((BoolSetting) ha[i]).toggle();
                 case T_MODE -> ((ModeSetting) ha[i]).cycle(button == 1 ? -1 : 1);
                 case T_COLOR -> {
-                    ColorSetting c = (ColorSetting) ha[i];
-                    int idx = 0;
-                    for (int k = 0; k < ColorSetting.PRESETS.length; k++) if (ColorSetting.PRESETS[k] == c.get()) idx = k;
-                    c.set(ColorSetting.PRESETS[(idx + (button == 1 ? -1 : 1) + ColorSetting.PRESETS.length) % ColorSetting.PRESETS.length]);
+                    dragScheme = (ColorSetting) ha[i];
+                    dragSchemeX = hx[i] + 2;
+                    dragSchemeW = hw[i] - 4;
+                    pickScheme(mx);
                 }
                 case T_BIND_KEY -> { if (button == 1) ((BindSetting) ha[i]).set(-1); else listening = (BindSetting) ha[i]; }
                 case T_BIND_MODE -> ((BindSetting) ha[i]).hold = !((BindSetting) ha[i]).hold;
@@ -630,6 +649,7 @@ public final class GuiView {
 
     public void drag(double mx, double my) {
         if (dragNum != null) slide(mx);
+        if (dragScheme != null) pickScheme(mx);
         if (dragPanel != null) {
             dragPanel.x = Math.max(2, Math.min(sw - dragPanel.w - 2, (float) mx - dragDX));
             dragPanel.y = Math.max(2, Math.min(sh - HEAD - 2, (float) my - dragDY));
@@ -640,6 +660,14 @@ public final class GuiView {
         if (dragPanel != null) saveLayout(dragPanel);
         dragPanel = null;
         dragNum = null;
+        dragScheme = null;
+    }
+
+    private void pickScheme(double mx) {
+        int n = Theme.SCHEME_COLORS.length;
+        double f = Math.max(0, Math.min(0.9999, (mx - dragSchemeX) / dragSchemeW));
+        int idx = (int) (f * n);
+        dragScheme.set(Theme.SCHEME_COLORS[Math.max(0, Math.min(n - 1, idx))]);
     }
 
     public void scroll(double mx, double my, double amount) {

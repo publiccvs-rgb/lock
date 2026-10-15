@@ -63,12 +63,9 @@ public final class FinderHud {
         int tc = typeColor(v, accent);
         int pc = chanceColor(v.p, low, high);
 
-        g.round(x - 3, y + 1, w + 6, h + 7, 11, 0x12000000);
-        g.round(x - 1.5f, y + 1, w + 3, h + 3.5f, 9.5f, 0x26000000);
-        g.round(x, y, w, h, 8, Theme.BORDER);
-        g.gradient(x + 1, y + 1, w - 2, h - 2, 7, Theme.PANEL_TOP, Theme.PANEL_BOT);
-        g.gradient(x + 1, y + 1, w - 2, 24, 7, 7, 0, 0, Theme.alpha(tc, 0.13f), Theme.alpha(tc, 0f));
-        g.rect(x + 8, y + 1, w - 16, 1, 0x1CFFFFFF);
+        g.round(x - 2, y + 1, w + 4, h + 4, 6, 0x30000000);
+        g.round(x, y, w, h, 4, Theme.PANEL);
+        g.roundEx(x, y, w, 3, 4, 4, 0, 0, tc);
 
         // title + chance chip
         g.text(v.type.label, x + pad, y + 8, tc, 1.05f, true);
@@ -83,7 +80,7 @@ public final class FinderHud {
         g.text(where, x + pad, y + 25, Theme.LABEL, 0.78f, true);
         String span = (v.hasEvidenceRange() ? "Y " + v.evidenceMinY + ".." + v.evidenceMaxY + "  " : "") + v.sectionsScanned + "/" + v.sectionsTotal + " sections";
         g.text(span, x + w - pad - g.width(span, 0.72f), y + 25.5f, Theme.DESC, 0.72f);
-        g.rect(x + pad, y + 37, w - 2 * pad, 1, Theme.RULE);
+        g.rect(x + pad, y + 37, w - 2 * pad, 1, Theme.DIVIDER);
 
         // reasons: "+N  text", coloured by evidence family; discounts are muted with a minus marker
         float ry = y + 43;
@@ -104,7 +101,7 @@ public final class FinderHud {
 
         // trace integrity + footer
         float fy = y + h - 30;
-        g.rect(x + pad, fy - 3, w - 2 * pad, 1, Theme.RULE);
+        g.rect(x + pad, fy - 3, w - 2 * pad, 1, Theme.DIVIDER);
         Verdict.Integrity in = v.integrity;
         float tx = x + pad;
         g.text("traces", tx, fy + 1, Theme.DESC, 0.68f, true);
@@ -155,17 +152,14 @@ public final class FinderHud {
                                double px, double pz, int scanned, int queued, Verdict hover) {
         int rows = Math.min(count, list.size());
         float w = LIST_W, h = listHeight(Math.max(rows, 1));
-        g.round(x - 3, y + 1, w + 6, h + 7, 10, 0x12000000);
-        g.round(x - 1.5f, y + 1, w + 3, h + 3.5f, 8.5f, 0x26000000);
-        g.round(x, y, w, h, 7, Theme.BORDER);
-        g.gradient(x + 1, y + 1, w - 2, h - 2, 6, Theme.PANEL_TOP, Theme.PANEL_BOT);
-        g.gradient(x + 1, y + 1, w - 2, 20, 6, 6, 0, 0, Theme.alpha(accent, 0.12f), Theme.alpha(accent, 0f));
-        g.rect(x + 7, y + 1, w - 14, 1, 0x1CFFFFFF);
+        g.round(x - 2, y + 1, w + 4, h + 4, 5, 0x30000000);
+        g.round(x, y, w, h, 4, Theme.PANEL);
+        g.roundEx(x, y, w, 3, 4, 4, 0, 0, accent);
 
         g.text("Targets", x + 10, y + 7, Theme.TITLE, 0.98f, true);
         String meta = scanned + " scanned" + (queued > 0 ? "  " + queued + " queued" : "");
         g.text(meta, x + w - 10 - g.width(meta, 0.62f), y + 9, Theme.DESC, 0.62f);
-        g.rect(x + 8, y + 20, w - 16, 1, Theme.RULE);
+        g.rect(x + 8, y + 20, w - 16, 1, Theme.DIVIDER);
 
         if (rows == 0) {
             g.text("Nothing flagged yet", x + 10, y + 29, Theme.DESC, 0.74f);

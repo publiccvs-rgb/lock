@@ -4,5 +4,3 @@ lock. 0.2.0 - Minecraft 1.21.11 (Fabric)
 2. Install Fabric Loader 0.19.5+ for 1.21.11 (https://fabricmc.net/use/installer/). Fabric API is NOT required.
 3. Put lock-0.2.0.jar in your mods folder and launch the Fabric profile.
 4. Right Shift opens the menu. Config: ~/.lock/config.json
-
-lock-loader.jar is the standalone loading window (java -jar lock-loader.jar); it is visual only for now.

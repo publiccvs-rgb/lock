@@ -81,10 +81,8 @@ final class OverlayHud {
         g.alpha(alpha);
         g.push(sx, sy, k);
         float x = -w / 2f, y = -h;
-        g.round(x - 1, y - 0.5f, w + 2, h + 2, 5.5f, 0x28000000);
-        g.round(x, y, w, h, 5, Theme.alpha(Theme.BORDER, 0.85f));
-        g.gradient(x + 1, y + 1, w - 2, h - 2, 4, Theme.alpha(Theme.PANEL_TOP, 0.88f), Theme.alpha(Theme.PANEL_BOT, 0.92f));
-        g.rect(x + 5, y + 1, w - 10, 1, 0x18FFFFFF);
+        g.round(x - 1, y - 0.5f, w + 2, h + 2, 4.5f, 0x28000000);
+        g.round(x, y, w, h, 4, Theme.alpha(Theme.PANEL, 0.92f));
 
         g.text(name, x + 7, y + 4, Theme.TITLE, 0.8f, true);
         if (hp != null) g.text(hp, x + w - 7 - g.width(hp, 0.7f), y + 4.6f, bar, 0.7f, true);
@@ -93,7 +91,7 @@ final class OverlayHud {
             float bw = w - 14;
             g.round(x + 7, cy, bw, 2.4f, 1.2f, Theme.TRACK);
             if (cfg.trail.get() && st.trail > st.shown) g.round(x + 7, cy, Math.max(1.5f, bw * st.trail), 2.4f, 1.2f, 0x55FFFFFF);
-            if (st.shown > 0.005f) g.gradient(x + 7, cy, Math.max(1.5f, bw * st.shown), 2.4f, 1.2f, Theme.brighten(bar, 0.12f), Theme.darken(bar, 0.12f));
+            if (st.shown > 0.005f) g.round(x + 7, cy, Math.max(1.5f, bw * st.shown), 2.4f, 1.2f, bar);
             if (abs > 0) g.round(x + 7, cy + 2.7f, Math.max(1.5f, bw * abs), 0.9f, 0.45f, 0xFFFFD479);
             cy += 6;
         }
