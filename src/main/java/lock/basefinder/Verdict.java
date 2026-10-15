@@ -62,5 +62,8 @@ public final class Verdict {
 
     private static String plural(int n) { return n + " chunk" + (n == 1 ? "" : "s"); }
 
+    /** Percentage for display; never claims certainty. */
+    public int pct() { return (int) Math.min(99, Math.round(p * 100)); }
+
     public boolean hasEvidenceRange() { return evidenceMinY <= evidenceMaxY; }
 }

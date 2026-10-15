@@ -13,9 +13,11 @@ public class ModeSetting extends Setting<String> {
 
     public boolean is(String m) { return value.equals(m); }
 
-    public void cycle() {
+    public void cycle() { cycle(1); }
+
+    public void cycle(int dir) {
         for (int i = 0; i < modes.length; i++) {
-            if (modes[i].equals(value)) { value = modes[(i + 1) % modes.length]; return; }
+            if (modes[i].equals(value)) { value = modes[((i + dir) % modes.length + modes.length) % modes.length]; return; }
         }
         value = modes[0];
     }

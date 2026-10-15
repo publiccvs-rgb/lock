@@ -58,18 +58,36 @@ public final class GuiPreview {
             }
         }
         // Liberation Sans is metric-compatible with Arial, which is what the game loads from the system
-        static final Font BASE = new Font("Liberation Sans", Font.PLAIN, 12);
-        Font face(float scale) { return BASE.deriveFont(8.6f * S * scale); }
-        @Override public void text(String s, float x, float y, int argb, float scale) {
+        static final Font BASE = new Font("Liberation Sans", Font.PLAIN, 12), BOLD = new Font("Liberation Sans", Font.BOLD, 12);
+        Font face(float scale, boolean bold) { return (bold ? BOLD : BASE).deriveFont(8.6f * S * scale); }
+        @Override public void text(String s, float x, float y, int argb, float scale, boolean bold) {
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-            g.setFont(face(scale)); g.setColor(c(argb));
+            g.setFont(face(scale, bold)); g.setColor(c(argb));
             if (scale == 1f) { x = Math.round(x); y = Math.round(y); }
             g.drawString(s, x * S, (y + 7f * scale) * S);   // the game puts the baseline 7 px below the text's top
         }
-        @Override public float width(String s, float scale) {
+        @Override public float width(String s, float scale, boolean bold) {
             g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-            return (float) g.getFontMetrics(face(scale)).getStringBounds(s, g).getWidth() / S;
+            return (float) g.getFontMetrics(face(scale, bold)).getStringBounds(s, g).getWidth() / S;
+        }
+        static int lerp(int a, int b, float t) {
+            int aa = a >>> 24, ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+            int ba = b >>> 24, br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+            return ((int) (aa + (ba - aa) * t) << 24) | ((int) (ar + (br - ar) * t) << 16) | ((int) (ag + (bg - ag) * t) << 8) | (int) (ab + (bb - ab) * t);
+        }
+        @Override public void gradient(float x, float y, float w, float h, float tl, float tr, float br, float bl, int top, int bottom) {
+            int x0 = Math.round(x), y0 = Math.round(y);
+            int W = Math.round(x + w) - x0, H = Math.round(y + h) - y0;
+            if (W <= 0 || H <= 0) return;
+            int rtl = radius(tl, W, H), rtr = radius(tr, W, H), rbr = radius(br, W, H), rbl = radius(bl, W, H);
+            for (int i = 0; i < H; i++) {
+                int l = 0, r = 0;
+                if (i < Math.max(rtl, rtr)) { l = i < rtl ? inset(rtl)[i] : 0; r = i < rtr ? inset(rtr)[i] : 0; }
+                int fromBottom = H - 1 - i;
+                if (fromBottom < Math.max(rbl, rbr)) { l = Math.max(l, fromBottom < rbl ? inset(rbl)[fromBottom] : 0); r = Math.max(r, fromBottom < rbr ? inset(rbr)[fromBottom] : 0); }
+                fill(x0 + l, y0 + i, x0 + W - r, y0 + i + 1, lerp(top, bottom, (i + 0.5f) / H));
+            }
         }
         @Override public void clip(float x, float y, float w, float h) {
             Shape cur = g.getClip();
@@ -108,24 +126,16 @@ public final class GuiPreview {
         ModuleManager m = new ModuleManager();
         m.charms.setEnabled(false); m.outlines.setEnabled(false); m.items.setEnabled(false);
         m.boxes.setEnabled(true); m.tracers.setEnabled(true); m.storage.setEnabled(true);
-        m.health.setEnabled(true); m.fullbright.setEnabled(true);
+        m.nameTags.setEnabled(true); m.fullbright.setEnabled(true); m.baseFinder.setEnabled(true);
         BufferedImage bg = scene();
         GuiView v = new GuiView(m);
 
         if (mode.equals("still") || mode.equals("open")) {
-            if (mode.equals("open")) { v.open(m.boxes); v.open(m.health); }
-            int mx = mode.equals("open") ? 210 : 150, my = mode.equals("open") ? 38 : 95;
+            if (mode.equals("open")) { v.open(m.baseFinder); }
+            int mx = mode.equals("open") ? 330 : 150, my = mode.equals("open") ? 160 : 95;
             // advance simulated time so animations and the tooltip settle
-            Gfx nul = new Gfx() {
-                public void rect(float x, float y, float w, float h, int c) {}
-                public void round(float x, float y, float w, float h, float r, int c) {}
-                public void roundEx(float x, float y, float w, float h, float a, float b, float c2, float d, int c) {}
-                public void text(String s, float x, float y, int c, float sc) {}
-                public float width(String s, float sc) { return 10; }
-                public void clip(float x, float y, float w, float h) {}
-                public void unclip() {}
-                public void alpha(float f) {}
-            };
+            BufferedImage scratch = new BufferedImage(W * S, H * S, BufferedImage.TYPE_INT_ARGB);
+            Gfx nul = new G2(scratch.createGraphics());
             for (int i = 0; i < 120; i++) v.render(nul, mx, my, 1 / 60f, W, H);
             frame(v, bg, 1 / 60f, mx, my, new File(dir, mode + ".png"));
         } else { // "video": scripted interaction, 30 fps

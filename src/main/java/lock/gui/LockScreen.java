@@ -56,6 +56,12 @@ public class LockScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent e) {
+        if (view.isListening()) return view.key(e.key());
+        return super.keyPressed(e);
+    }
+
+    @Override
     public void onClose() {
         if (closing) return;
         closing = true;

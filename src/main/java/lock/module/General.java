@@ -10,14 +10,14 @@ import net.minecraft.world.entity.player.Player;
 
 /** Shared accent colour and target filter used by every entity ESP module. */
 public class General extends Module {
-    public final ColorSetting accent = add(new ColorSetting("Accent", 0x14F2BE));
-    public final BoolSetting players = add(new BoolSetting("Players", true));
-    public final BoolSetting hostiles = add(new BoolSetting("Hostiles", false));
-    public final BoolSetting passives = add(new BoolSetting("Passives", false));
-    public final BoolSetting invisible = add(new BoolSetting("Invisible", true));
-    public final BoolSetting ignoreNpcs = add(new BoolSetting("Ignore NPCs", true));
-    public final BoolSetting teammates = add(new BoolSetting("Teammates", true));
-    public final NumSetting range = add(new NumSetting("Range", 96, 16, 256, 8));
+    public final ColorSetting accent = add(new ColorSetting("Accent", 0x22D3EE)).d("Primary color used across the menu and every module that follows the accent.");
+    public final BoolSetting players = add(new BoolSetting("Players", true)).d("Draw other players.");
+    public final BoolSetting hostiles = add(new BoolSetting("Hostiles", false)).d("Draw hostile mobs.");
+    public final BoolSetting passives = add(new BoolSetting("Passives", false)).d("Draw passive animals and villagers.");
+    public final BoolSetting invisible = add(new BoolSetting("Invisible", true)).d("Include invisible entities.");
+    public final BoolSetting ignoreNpcs = add(new BoolSetting("Ignore NPCs", true)).d("Skip entities that are not on the tab list (server NPCs and bots).");
+    public final BoolSetting teammates = add(new BoolSetting("Teammates", true)).d("Include players on your own team.");
+    public final NumSetting range = add(new NumSetting("Range", 96, 16, 256, 8)).d("Entities further than this are not drawn (blocks).");
 
     public General() { super("General", "Accent colour and who gets drawn", true); }
 

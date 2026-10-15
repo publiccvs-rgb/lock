@@ -41,22 +41,40 @@ public final class UiFont {
     /** Em size in GUI pixels (Arial cap height ~0.72em, which matches the reference's text/row ratio). */
     private static final float SIZE = 8.6f, OVERSAMPLE = 4f;
 
-    private static Font font;
-    private static boolean tried;
+    private static final String[] BOLD_CANDIDATES = {
+        "C:/Windows/Fonts/arialbd.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/Library/Fonts/Arial Bold.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/Arial_Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
+    };
+
+    private static Font font, boldFont;
+    private static boolean tried, triedBold;
 
     private UiFont() {}
 
     public static Font get() {
         if (!tried) {
             tried = true;
-            try { font = build(); } catch (Throwable t) { font = null; }
+            try { font = build(CANDIDATES, "font/ui"); } catch (Throwable t) { font = null; }
         }
         return font != null ? font : Minecraft.getInstance().font;
     }
 
-    private static Font build() throws Exception {
+    /** Arial Bold for titles; falls back to the regular face. */
+    public static Font bold() {
+        if (!triedBold) {
+            triedBold = true;
+            try { boldFont = build(BOLD_CANDIDATES, "font/ui_bold"); } catch (Throwable t) { boldFont = null; }
+        }
+        return boldFont != null ? boldFont : get();
+    }
+
+    private static Font build(String[] candidates, String id) throws Exception {
         Path file = null;
-        for (String c : CANDIDATES) if (Files.isRegularFile(Path.of(c))) { file = Path.of(c); break; }
+        for (String c : candidates) if (Files.isRegularFile(Path.of(c))) { file = Path.of(c); break; }
         if (file == null) return null;
 
         byte[] bytes = Files.readAllBytes(file);
@@ -74,7 +92,7 @@ public final class UiFont {
         }
 
         TrueTypeGlyphProvider provider = new TrueTypeGlyphProvider(mem, face, SIZE, OVERSAMPLE, 0f, 0f, "");
-        GlyphStitcher stitcher = new GlyphStitcher(Minecraft.getInstance().getTextureManager(), Identifier.fromNamespaceAndPath("lock", "font/ui"));
+        GlyphStitcher stitcher = new GlyphStitcher(Minecraft.getInstance().getTextureManager(), Identifier.fromNamespaceAndPath("lock", id));
         FontSet set = new FontSet(stitcher);
         set.reload(List.of(new GlyphProvider.Conditional(provider, FontOption.Filter.ALWAYS_PASS)), Set.of());
 

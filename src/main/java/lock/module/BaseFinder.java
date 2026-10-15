@@ -192,7 +192,7 @@ public class BaseFinder extends Module {
             if (last != null && tick - last < cooldown.i() * 20) continue;
             alertedAt.put(k, tick);
             String where = (v.cx * 16 + 8) + ", " + (v.hasEvidenceRange() ? (v.evidenceMinY + v.evidenceMaxY) / 2 : "?") + ", " + (v.cz * 16 + 8);
-            String title = v.type.label + " " + Math.round(v.p * 100) + "%";
+            String title = v.type.label + " " + v.pct() + "%";
             net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToastManager(),
                 net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION, Component.literal("BaseFinder - " + title), Component.literal(where));
             mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_CHIME.value(), 1.3f));
