@@ -22,7 +22,7 @@ public final class Shapes {
 
     private Shapes() {}
 
-    private static void init() {
+    static void init() {
         if (circles != null) return;
         circles = new Identifier[CIRCLE_SIZES.length];
         for (int i = 0; i < CIRCLE_SIZES.length; i++) {

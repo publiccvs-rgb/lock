@@ -74,10 +74,43 @@ public final class LockClient implements ClientBridge {
         Modules.registerAll(this);
         modules.finish();
         if (config.recoveredFrom() != null) notifications.warn("Configuration", "Recovered from an unreadable config file");
+        startWarmUp();
         Log.info("Lock client ready: " + modules.all().size() + " modules, profile '" + config.profile().name() + "'");
     }
 
     public static LockClient get() { return instance; }
+
+    /**
+     * Pre-rasterises font and icon atlases for the sizes the GUI and HUD will use at the current
+     * scales, on a background thread; the render thread uploads them a couple per frame. This keeps
+     * the first GUI open and first HUD frame free of hitches.
+     */
+    private void startWarmUp() {
+        int gs = Math.max(1, mc.getWindow().getGuiScale());
+        float gui = (float) (config.state("click_gui").num("scale") * 1.6);
+        float hud = (float) (config.state("hud_settings").num("scale") * (config.state("hud_settings").bool("followGuiScale") ? gs : 2));
+        Thread t = new Thread(() -> {
+            long t0 = System.nanoTime();
+            try {
+                java.util.Set<Float> px = new java.util.TreeSet<>();
+                for (float s : new float[]{5.5f, 6.5f, 7.5f, 10.5f}) px.add(s * gui);
+                for (float s : new float[]{6f, 7f, 7.5f, 8f, 13f}) px.add(s * hud);
+                float[] arr = new float[px.size()];
+                int i = 0;
+                for (Float f : px) arr[i++] = f;
+                dev.lock.client.render.LockFont.warmUp(arr);
+                for (float s : new float[]{7f, 8f, 9f, 12f * 0.62f, 16f * 0.62f}) dev.lock.client.render.Icons.warmUp(s * gui);
+                for (float s : new float[]{8f}) dev.lock.client.render.Icons.warmUp(s * hud);
+                dev.lock.client.render.Tex.onRenderThread(dev.lock.client.render.Gfx::warmShapes);
+                Log.info("UI warm-up rasterised in " + (System.nanoTime() - t0) / 1_000_000 + " ms");
+            } catch (Throwable e) {
+                Log.warn("UI warm-up failed (atlases will be built on demand): " + e);
+            }
+        }, "Lock UI warm-up");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
+    }
 
     /** Records a setting edit made through any UI. */
     public void settingChanged(ClientModule m, String key) {
@@ -100,6 +133,8 @@ public final class LockClient implements ClientBridge {
             checked = true;
             diagnostics.runCompatibilityChecks();
         }
+        dev.lock.client.render.Tex.drain(2);
+        dev.lock.client.render.LockFont.fast = "Fast".equals(config.state("hud_settings").str("textRenderer"));
         stats.tick();
         modules.tick();
         config.tick();
@@ -108,6 +143,7 @@ public final class LockClient implements ClientBridge {
     @Override
     public void renderHud(Object graphics, Object delta) {
         stats.frame();
+        dev.lock.client.render.Tex.drain(1);
         if (mc.player == null) return;
         if (mc.screen instanceof HudEditorScreen) return; // the editor draws the HUD itself
         ModuleState hs = config.state("hud_settings");

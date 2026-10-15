@@ -408,7 +408,17 @@ public final class HudModules {
     public static final class ModuleList extends HudModule {
         public ModuleList(LockClient l) { super(l, "module_list"); }
 
+        private List<String> cachedEntries;
+        private long entriesAt;
+
         private List<String> entries(Gfx gfx) {
+            long now = System.currentTimeMillis();
+            if (cachedEntries != null && now - entriesAt < 100) return cachedEntries;
+            entriesAt = now;
+            return cachedEntries = buildEntries(gfx);
+        }
+
+        private List<String> buildEntries(Gfx gfx) {
             List<ClientModule> mods = new ArrayList<>();
             for (ClientModule m : lock.modules.all()) {
                 if (!m.def.toggleable() || !m.active()) continue;
@@ -444,7 +454,7 @@ public final class HudModules {
                 int bw = tw + 10;
                 int bx = right ? w - bw : 0;
                 gfx.rrect(bx, y, bw, 12, 3, 0xA0141517);
-                if (b("bars")) gfx.rrect(right ? w - 2 : 0, y + 2, 2, 8, 1, lock.theme.accent());
+                if (b("bars")) gfx.fill(right ? w - 2 : 0, y + 2, right ? w : 2, y + 10, lock.theme.accent());
                 gfx.textMid(s, bx + 5, y + 6, 8f, textColor(), LockFont.Weight.MEDIUM);
                 y += 13;
             }

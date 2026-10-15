@@ -14,6 +14,9 @@ import dev.lock.core.module.ModuleDef;
 public final class HudManager {
     private final LockClient lock;
     public long lastFrameNanos;
+    /** Last 20 frames, for a rolling average that settles quickly even at low frame rates. */
+    private final long[] recent = new long[20];
+    private long recentIdx;
     private double avgFrameNanos;
 
     public HudManager(LockClient lock) { this.lock = lock; }
@@ -61,8 +64,11 @@ public final class HudManager {
     public double averageCostMicros() { return avgFrameNanos / 1000.0; }
 
     /** Draws every visible HUD element. In editor mode all enabled elements are drawn regardless of visibility rules. */
+    private static long now() { return System.nanoTime(); }
+
     public void render(Gfx gfx, boolean editor) {
-        long t0 = System.nanoTime();
+        long t0 = now();
+        frame++;
         int sw = gfx.g.guiWidth(), sh = gfx.g.guiHeight();
         for (HudModule m : lock.modules.huds()) {
             if (!m.active() || lock.modules.faulted(m.def.id)) continue;
@@ -70,15 +76,20 @@ public final class HudManager {
                 if (!lock.visibility.visible(m.def.visibilityGroup) || !m.state().bool(ModuleDef.H_LOCAL)) continue;
                 if (m.empty()) continue;
             }
-            long e0 = System.nanoTime();
+            boolean sample = (frame & 31) == 0; // per-element timing is sampled so instrumentation stays negligible
+            long e0 = sample ? now() : 0;
             m.editing = editor;
-            if (!editor && pendingPlacement.remove(m.def.id)) lock.modules.guard(m, "place", () -> { layout(gfx, m, sw, sh); place(m, sw, sh); });
+            if (pendingPlacement.remove(m.def.id)) lock.modules.guard(m, "place", () -> { layout(gfx, m, sw, sh); place(m, sw, sh); });
             lock.modules.guard(m, "render", () -> drawElement(gfx, m, sw, sh));
             m.editing = false;
-            m.lastRenderNanos = System.nanoTime() - e0;
+            if (sample) m.lastRenderNanos = now() - e0;
         }
-        lastFrameNanos = System.nanoTime() - t0;
-        avgFrameNanos = avgFrameNanos == 0 ? lastFrameNanos : avgFrameNanos * 0.95 + lastFrameNanos * 0.05;
+        lastFrameNanos = now() - t0;
+        recent[(int) (recentIdx++ % recent.length)] = lastFrameNanos;
+        long sum = 0;
+        int n = (int) Math.min(recentIdx, recent.length);
+        for (int i = 0; i < n; i++) sum += recent[i];
+        avgFrameNanos = sum / (double) n;
     }
 
     /** Computes the element's on-screen box {x, y, w, h} and caches it on the module. */
@@ -100,6 +111,19 @@ public final class HudManager {
 
     public float scale(HudModule m) { return globalScale() * (float) m.state().num(ModuleDef.H_SCALE); }
 
+    /** Frame counter and per-element "first drawn" times for fade-in when an element appears. */
+    private long frame;
+    private final java.util.Map<String, long[]> seen = new java.util.HashMap<>();
+
+    private float fade(HudModule m) {
+        long now = System.currentTimeMillis();
+        long[] s = seen.computeIfAbsent(m.def.id, k -> new long[]{-2, now});
+        if (s[0] < frame - 1) s[1] = now; // not drawn last frame: restart fade
+        s[0] = frame;
+        float t = Math.min(1f, (now - s[1]) / 180f);
+        return 1f - (1f - t) * (1f - t);
+    }
+
     private void drawElement(Gfx gfx, HudModule m, int sw, int sh) {
         int[] box = layout(gfx, m, sw, sh);
         ModuleState st = m.state();
@@ -107,7 +131,7 @@ public final class HudManager {
         gfx.push();
         gfx.translate(box[0], box[1]);
         gfx.scale(s);
-        gfx.alpha = (float) st.num(ModuleDef.H_OPACITY);
+        gfx.alpha = (float) st.num(ModuleDef.H_OPACITY) * fade(m);
         int r = st.integer(ModuleDef.H_RADIUS);
         boolean bg = !m.ownBackground();
         if (bg && st.bool(ModuleDef.H_BORDER)) gfx.rrect(-1, -1, box[4] + 2, box[5] + 2, r + 1, st.color(ModuleDef.H_BORDER_COLOR));

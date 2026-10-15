@@ -26,6 +26,21 @@ public final class Tex {
      * kept) because everything Lock draws from these textures is tinted, and white RGB avoids dark
      * fringes when transparent edges are filtered.
      */
+    /** Images rasterised off-thread, waiting to be uploaded on the render thread. */
+    private static final java.util.concurrent.ConcurrentLinkedQueue<Runnable> PENDING = new java.util.concurrent.ConcurrentLinkedQueue<>();
+
+    /** Schedules work that must run on the render thread (texture uploads). */
+    public static void onRenderThread(Runnable r) { PENDING.add(r); }
+
+    /** Uploads at most {@code max} queued textures; called once per frame so warm-up never causes a hitch. */
+    public static void drain(int max) {
+        for (int i = 0; i < max; i++) {
+            Runnable r = PENDING.poll();
+            if (r == null) return;
+            r.run();
+        }
+    }
+
     public static Identifier upload(String name, BufferedImage img, boolean whiten) {
         int w = img.getWidth(), h = img.getHeight();
         NativeImage ni = new NativeImage(w, h, false);

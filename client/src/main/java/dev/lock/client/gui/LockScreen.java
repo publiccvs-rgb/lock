@@ -82,6 +82,18 @@ public final class LockScreen extends Screen {
     private float scale = 1f;
     private int sw, sh;
     private final long openedAt = System.currentTimeMillis();
+    private long closeAt = -1;
+    private final Map<String, Long> winOpened = new HashMap<>();
+
+    private boolean animated() { return lock.config.state("click_gui").bool("animations"); }
+
+    /** 0..1 open progress with ease-out cubic; runs backwards while closing. */
+    private float openProgress() {
+        if (!animated()) return closeAt >= 0 ? 0f : 1f;
+        long now = System.currentTimeMillis();
+        float t = closeAt >= 0 ? 1f - Math.min(1f, (now - closeAt) / 130f) : Math.min(1f, (now - openedAt) / 200f);
+        return 1f - (1f - t) * (1f - t) * (1f - t);
+    }
     private ListenTarget listening;
     private String expandedColor, status = "";
     private long statusAt, confirmResetAt;
@@ -134,6 +146,7 @@ public final class LockScreen extends Screen {
                 if (w == null || m == null) continue;
                 w.x = (int) JsonUtil.num(m, "x", w.x);
                 w.y = (int) JsonUtil.num(m, "y", w.y);
+                placed.add(w.id);
                 w.open = w.id.equals("main") || JsonUtil.bool(m, "open", w.open);
                 w.collapsed = JsonUtil.bool(m, "collapsed", false);
             }
@@ -174,22 +187,49 @@ public final class LockScreen extends Screen {
         w.open = !w.open;
         if (w.open) {
             w.collapsed = false;
+            if (!placed.contains(id)) placeFree(w);
+            winOpened.put(id, System.currentTimeMillis());
             front(id);
         }
+    }
+
+    /** Windows the user has positioned (or that were restored from config); others get auto-placed. */
+    private final Set<String> placed = new HashSet<>();
+
+    /** Moves a newly opened window to the first spot (left to right, top to bottom) not covering another open window. */
+    private void placeFree(Win w) {
+        int h = Math.min(w.contentH + HEADER, Math.max(60, sh - 16));
+        for (int y = 8; y + 40 < Math.max(sh, 200); y += 12) {
+            for (int x = 8; x + w.w <= Math.max(sw, w.w + 16) - 4; x += 6) {
+                boolean free = true;
+                for (Win o : wins.values()) {
+                    if (o == w || !o.open) continue;
+                    if (x < o.x + o.w + 4 && x + w.w + 4 > o.x && y < o.y + o.drawnH + 4 && y + h + 4 > o.y) { free = false; break; }
+                }
+                if (free) { w.x = x; w.y = y; return; }
+            }
+        }
+        w.x = 40 + (z.size() % 6) * 14;
+        w.y = 30 + (z.size() % 6) * 14;
     }
 
     // ------------------------------------------------------------------ screen basics
 
     @Override public boolean isPauseScreen() { return lock.config.state("click_gui").bool("pause"); }
 
-    @Override public void renderBackground(GuiGraphics g, int mx, int my, float pt) { g.fill(0, 0, width, height, 0x60000000); }
+    @Override public void renderBackground(GuiGraphics g, int mx, int my, float pt) {
+        g.fill(0, 0, width, height, ThemeManager.mulAlpha(0x60000000, openProgress()));
+    }
 
     @Override public void removed() {
         saveWindows();
         lock.config.saveAsync();
     }
 
-    @Override public void onClose() { minecraft.setScreen(parent); }
+    @Override public void onClose() {
+        if (animated() && closeAt < 0) { closeAt = System.currentTimeMillis(); return; } // finish the close animation first
+        minecraft.setScreen(parent);
+    }
 
     private void flash(String s) { status = s; statusAt = System.currentTimeMillis(); }
 
@@ -203,6 +243,9 @@ public final class LockScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float pt) {
+        float open = openProgress();
+        if (closeAt >= 0 && open <= 0.001f) { minecraft.setScreen(parent); return; }
+        dev.lock.client.render.Tex.drain(2);
         renderBackground(g, mouseX, mouseY, pt);
         // constant physical size: 1.6 screen pixels per GUI unit at scale 1.0, whatever the vanilla GUI scale
         scale = (float) (lock.config.state("click_gui").num("scale") * 1.6 / minecraft.getWindow().getGuiScale());
@@ -211,8 +254,12 @@ public final class LockScreen extends Screen {
         Gfx gfx = new Gfx(g);
         gfx.push();
         gfx.scale(scale);
-        if (lock.config.state("click_gui").bool("animations"))
-            gfx.alpha = Math.min(1f, (System.currentTimeMillis() - openedAt) / 120f);
+        // open/close: fade + subtle zoom around the screen centre
+        float zoom = 0.96f + 0.04f * open;
+        gfx.translate(sw / 2f, sh / 2f);
+        gfx.scale(zoom);
+        gfx.translate(-sw / 2f, -sh / 2f);
+        gfx.alpha = open;
         ui.begin(gfx, local(mouseX), local(mouseY));
         wins.get("search").open = !search.text.isEmpty();
         if (!search.text.isEmpty() && !z.get(z.size() - 1).equals("search") && ui.focused == search) front("search");
@@ -236,7 +283,24 @@ public final class LockScreen extends Screen {
         w.x = Math.max(-w.w + 40, Math.min(sw - 40, w.x));
         w.y = Math.max(0, Math.min(sh - HEADER, w.y));
         int maxView = Math.max(40, sh - w.y - HEADER - 6);
-        int view = w.collapsed ? 0 : Math.min(w.contentH, maxView);
+        int target = w.collapsed ? 0 : Math.min(w.contentH, maxView);
+        int view = Math.round(ui.ease("view:" + w.id, target));
+        float baseAlpha = g.alpha;
+        Long since = winOpened.get(w.id);
+        float wo = since == null || !animated() ? 1f : Math.min(1f, (System.currentTimeMillis() - since) / 160f);
+        wo = 1f - (1f - wo) * (1f - wo);
+        g.alpha = baseAlpha * wo;
+        g.push();
+        g.translate(0, (1 - wo) * -5);
+        try {
+            drawWindowBody(g, w, view);
+        } finally {
+            g.pop();
+            g.alpha = baseAlpha;
+        }
+    }
+
+    private void drawWindowBody(Gfx g, Win w, int view) {
         int h = HEADER + view + (view > 0 ? 4 : 0);
         w.drawnH = h;
         g.shadow(w.x, w.y, w.w, h, 6, 0x70000000);
@@ -295,7 +359,7 @@ public final class LockScreen extends Screen {
             front(w.id);
             if (btn == 1 && !w.id.equals("main")) { w.collapsed = !w.collapsed; return; }
             int ox = px - w.x, oy = py - w.y;
-            ui.drag = (mx, my) -> { w.x = mx - ox; w.y = my - oy; };
+            ui.drag = (mx, my) -> { w.x = mx - ox; w.y = my - oy; placed.add(w.id); };
         });
     }
 
@@ -395,7 +459,15 @@ public final class LockScreen extends Screen {
         }
         for (ClientModule m : mods) {
             y = moduleRow(g, w, m, y);
-            if (expanded.contains(m.def.id)) y = settings(g, m, w.x + 3, y, w.w - 6 - (w.scrollable ? 4 : 0));
+            float e = ui.ease("exp:" + m.def.id, expanded.contains(m.def.id) ? 1 : 0);
+            if (e > 0.01f) {
+                int full = heights.getOrDefault(m.def.id, 120) + 3;
+                int vis = Math.round(full * e);
+                ui.clip(w.x, y, w.x + w.w, y + vis);
+                settings(g, m, w.x + 3, y, w.w - 6 - (w.scrollable ? 4 : 0));
+                ui.unclip();
+                y += vis;
+            }
         }
         return y + 1;
     }
@@ -406,7 +478,8 @@ public final class LockScreen extends Screen {
         boolean hov = ui.hover(x, y, rw, ROW);
         float t = ui.ease("row" + m.def.id, on ? 1 : 0);
         if (t > 0.01f) g.rrect(x, y + 1, rw, ROW - 1, 3, ThemeManager.withAlpha(accent(), (int) (0xFF * t)));
-        if (hov) g.rrect(x, y + 1, rw, ROW - 1, 3, ROW_HOVER);
+        float hv = ui.ease("hov:" + m.def.id, hov ? 1 : 0);
+        if (hv > 0.01f) g.rrect(x, y + 1, rw, ROW - 1, 3, ThemeManager.mulAlpha(ROW_HOVER, hv));
         int tc = ThemeManager.blend(m.def.toggleable() ? text() : DIM, lock.theme.onAccent(), t);
         float nx = ui.text(ui.ellipsize(m.def.name, rw - 40, FS), x + 6, y + ROW / 2f + 0.5f, FS, tc, Ui.M);
         if (lock.modules.faulted(m.def.id)) g.circle(nx + 4, y + ROW / 2f, 2, 0xFFF2575F);
@@ -963,6 +1036,7 @@ public final class LockScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent e, boolean doubleClick) {
+        if (closeAt >= 0) return true;
         int mx = local(e.x()), my = local(e.y());
         if (listening != null) {
             if (e.button() >= 2) {
@@ -997,8 +1071,23 @@ public final class LockScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double x, double y, double sx, double sy) {
+        if (ctrlDown()) { adjustScale(Math.signum(sy) * 0.05); return true; }
         ui.scroll(local(x), local(y), sy);
         return true;
+    }
+
+    private boolean ctrlDown() {
+        long win = minecraft.getWindow().handle();
+        return GLFW.glfwGetKey(win, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS || GLFW.glfwGetKey(win, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS
+                || GLFW.glfwGetKey(win, GLFW.GLFW_KEY_LEFT_SUPER) == GLFW.GLFW_PRESS;
+    }
+
+    /** Changes the Click GUI scale live (Ctrl+scroll, Ctrl +/-, Ctrl 0 resets). */
+    private void adjustScale(double delta) {
+        ClientModule cg = lock.modules.get("click_gui");
+        double v = delta == 0 ? (Double) cg.def.setting("scale").defaultValue : cg.state().num("scale") + delta;
+        set(cg, "scale", v);
+        flash("GUI scale " + Math.round(cg.state().num("scale") * 100) + "%");
     }
 
     @Override
@@ -1023,6 +1112,12 @@ public final class LockScreen extends Screen {
                 default -> { }
             }
             return true;
+        }
+        if ((e.modifiers() & (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SUPER)) != 0) {
+            if (key == GLFW.GLFW_KEY_EQUAL || key == GLFW.GLFW_KEY_KP_ADD) { adjustScale(0.05); return true; }
+            if (key == GLFW.GLFW_KEY_MINUS || key == GLFW.GLFW_KEY_KP_SUBTRACT) { adjustScale(-0.05); return true; }
+            if (key == GLFW.GLFW_KEY_0) { adjustScale(0); return true; }
+            if (key == GLFW.GLFW_KEY_F) { ui.focused = search; return true; }
         }
         if (key == lock.config.state("click_gui").key("openKey") || key == GLFW.GLFW_KEY_ESCAPE) {
             onClose();

@@ -108,13 +108,21 @@ public final class Ui {
         return v;
     }
 
+    private final java.util.ArrayDeque<int[]> clips = new java.util.ArrayDeque<>();
+
+    /** Pushes a clip rectangle (intersected with the current one). */
     public void clip(int x1, int y1, int x2, int y2) {
-        clip = new int[]{x1, y1, x2, y2};
-        gfx.scissor(x1, y1, x2, y2);
+        if (clip != null) {
+            x1 = Math.max(x1, clip[0]); y1 = Math.max(y1, clip[1]);
+            x2 = Math.min(x2, clip[2]); y2 = Math.min(y2, clip[3]);
+            clips.push(clip);
+        }
+        clip = new int[]{x1, y1, Math.max(x1, x2), Math.max(y1, y2)};
+        gfx.scissor(x1, y1, Math.max(x1, x2), Math.max(y1, y2));
     }
 
     public void unclip() {
-        clip = null;
+        clip = clips.isEmpty() ? null : clips.pop();
         gfx.unscissor();
     }
 
@@ -191,7 +199,21 @@ public final class Ui {
 
     public String ellipsize(String s, int w) { return ellipsize(s, w, FS); }
 
+    private final Map<String, List<String>> wrapCache = new java.util.LinkedHashMap<>(64, 0.75f, true) {
+        @Override protected boolean removeEldestEntry(Map.Entry<String, List<String>> e) { return size() > 256; }
+    };
+
+    /** Word-wraps text to width {@code w} (cached: descriptions are re-laid-out every frame otherwise). */
     public List<String> wrap(String text, float w, float size) {
+        String key = text + '\u0000' + w + '\u0000' + size;
+        List<String> cached = wrapCache.get(key);
+        if (cached != null) return cached;
+        List<String> out = wrapUncached(text, w, size);
+        wrapCache.put(key, out);
+        return out;
+    }
+
+    private List<String> wrapUncached(String text, float w, float size) {
         List<String> out = new ArrayList<>();
         for (String para : text.split("\n")) {
             StringBuilder line = new StringBuilder();

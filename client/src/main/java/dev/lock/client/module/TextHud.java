@@ -35,6 +35,7 @@ public abstract class TextHud extends HudModule {
             if (l.isEmpty() && editing) l.add(new Line("", def.name, 0));
             cached = l;
             lastBuild = now;
+            sizeKey = Float.NaN;
         }
         return cached;
     }
@@ -63,9 +64,20 @@ public abstract class TextHud extends HudModule {
 
     private int iconSpace() { return icon() != null ? Math.round(12 * textScale()) : 0; }
 
+    private float sizeKey = Float.NaN;
+    private int[] sizeCache;
+
     @Override
     public int[] size(Gfx gfx) {
         List<Line> lines = content();
+        float key = textScale() * 1000 + padding() + (icon() != null ? 0.5f : 0);
+        if (key == sizeKey && sizeCache != null) return sizeCache; // recomputed only when content or layout settings change
+        sizeKey = key;
+        sizeCache = measure(gfx, lines);
+        return sizeCache;
+    }
+
+    private int[] measure(Gfx gfx, List<Line> lines) {
         float size = BASE * textScale();
         float w = 0;
         for (Line l : lines) w = Math.max(w, lineW(gfx, l, size));

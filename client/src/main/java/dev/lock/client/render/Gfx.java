@@ -66,6 +66,9 @@ public final class Gfx {
 
     public void icon(String name, float x, float y, float size, int color) { Icons.draw(this, name, x, y, size, a(color)); }
 
+    /** Render thread: makes sure the shared shape textures exist (part of warm-up). */
+    public static void warmShapes() { Shapes.init(); }
+
     // ------------------------------------------------------------------ text
 
     /** Draws text with caps starting at y. Returns the x after the text (rounded up). */

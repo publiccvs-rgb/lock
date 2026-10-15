@@ -10,18 +10,7 @@ public final class ThemeManager {
 
     private ModuleState s() { return config.state("theme"); }
 
-    public int accent() {
-        return switch (s().str("preset")) {
-            case "Blue" -> 0xFF4C8DF6;
-            case "Mint" -> 0xFF5CD6A9;
-            case "Rose" -> 0xFFEC5F8A;
-            case "Amber" -> 0xFFE9A23B;
-            case "Violet" -> 0xFF8B6CF0;
-            case "Mono" -> 0xFFD0D2D8;
-            case "Custom" -> s().color("accent");
-            default -> 0xFF26A884;
-        };
-    }
+    public int accent() { return dev.lock.core.ui.Palette.accent(s()); }
 
     public int panel() { return "Custom".equals(s().str("preset")) ? s().color("panel") : 0xF717181B; }
 
@@ -33,11 +22,7 @@ public final class ThemeManager {
     public int text() { return "Custom".equals(s().str("preset")) ? s().color("text") : 0xFFDCDDE1; }
 
     /** Readable text colour on top of the accent. */
-    public int onAccent() {
-        int c = accent();
-        float lum = (((c >> 16) & 0xFF) * 0.299f + ((c >> 8) & 0xFF) * 0.587f + (c & 0xFF) * 0.114f) / 255f;
-        return lum > 0.72f ? 0xFF111214 : 0xFFFFFFFF;
-    }
+    public int onAccent() { return dev.lock.core.ui.Palette.onColor(accent()); }
 
     public int dim() { return withAlpha(text(), 0x99); }
 

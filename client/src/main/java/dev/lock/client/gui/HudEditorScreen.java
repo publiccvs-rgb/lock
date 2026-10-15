@@ -29,7 +29,7 @@ public final class HudEditorScreen extends Screen {
     private HudModule selected, dragging;
     private int dragDX, dragDY;
     private final List<int[]> guides = new ArrayList<>(); // {vertical?1:0, position}
-    private boolean preview, panel = true;
+    private boolean preview, panel;
     private double panelScroll;
 
     public HudEditorScreen(Screen parent) { this(parent, null); }
@@ -94,6 +94,12 @@ public final class HudEditorScreen extends Screen {
             ch = (int) (height / k);
             toolbar(gfx);
             if (panel) elementPanel(gfx);
+            if (System.currentTimeMillis() - scaleToastAt < 1500) {
+                String t = "HUD scale " + Math.round(lock.config.state("hud_settings").num("scale") * 100) + "%";
+                float tw = gfx.width(t, 7.5f, LockFont.Weight.MEDIUM) + 16;
+                gfx.rrect((int) ((cw - tw) / 2), ch / 2 - 8, (int) tw, 16, 5, lock.theme.accent());
+                gfx.textMid(t, (cw - tw) / 2 + 8, ch / 2f, 7.5f, lock.theme.onAccent(), LockFont.Weight.MEDIUM);
+            }
             ui.end();
             gfx.pop();
         } else {
@@ -107,6 +113,7 @@ public final class HudEditorScreen extends Screen {
     }
 
     private float k = 1f;
+    private long scaleToastAt;
     private int cw, ch;
 
     private float chromeScale() { return (float) (lock.config.state("click_gui").num("scale") * 1.6 / minecraft.getWindow().getGuiScale()); }
@@ -122,7 +129,7 @@ public final class HudEditorScreen extends Screen {
                 {"eye", "Preview (P)"}};
         int size = 16, gap = 2, doneW = 40;
         int total = items.length * (size + gap) + doneW + 10;
-        int x = (cw - total) / 2, y = 6;
+        int x = (cw - total) / 2, y = ch - 64;
         g.shadow(x, y, total, size + 6, 5, 0x80000000);
         g.rrect(x, y, total, size + 6, 6, 0xF8161719);
         int bx = x + 4;
@@ -133,9 +140,9 @@ public final class HudEditorScreen extends Screen {
             bx += size + gap;
         }
         ui.button(bx + 2, y + 4, doneW, size - 2, "Done", () -> toolbarAction(6), true);
-        String hint = "Drag to move \u00B7 Scroll to scale \u00B7 Shift disables snapping \u00B7 Right-click for settings";
+        String hint = "Drag to move \u00B7 Scroll an element to scale it \u00B7 Scroll empty space for global scale \u00B7 Right-click for settings";
         float hw = g.width(hint, 6f, LockFont.Weight.REGULAR);
-        g.textMid(hint, (cw - hw) / 2f, y + size + 14, 6f, 0x90FFFFFF, LockFont.Weight.REGULAR);
+        g.textMid(hint, (cw - hw) / 2f, y - 7, 6f, 0x90FFFFFF, LockFont.Weight.REGULAR);
     }
 
     private void toolbarAction(int i) {
@@ -156,7 +163,7 @@ public final class HudEditorScreen extends Screen {
     /** Per-element visibility list, styled like a Click GUI column. */
     private void elementPanel(Gfx g) {
         int rowH = 14, header = 18;
-        int x = 6, y = 34, w = 118;
+        int x = 6, y = 6, w = 118;
         int h = Math.min(ch - y - 6, lock.modules.huds().size() * rowH + header + 6);
         g.shadow(x, y, w, h, 6, 0x70000000);
         g.rrect(x, y, w, h, 5, 0xF8161719);
@@ -276,8 +283,14 @@ public final class HudEditorScreen extends Screen {
     public boolean mouseScrolled(double x, double y, double sx, double sy) {
         if (ui.scroll((int) (x / k), (int) (y / k), sy)) return true;
         HudModule h = hovered((int) x, (int) y);
-        if (h == null) h = selected;
-        if (h == null) return true;
+        if (h == null) {
+            // empty space: global HUD scale
+            var hs = lock.config.state("hud_settings");
+            hs.set("scale", hs.num("scale") + Math.signum(sy) * 0.05);
+            lock.config.changed();
+            scaleToastAt = System.currentTimeMillis();
+            return true;
+        }
         double s = h.state().num(ModuleDef.H_SCALE) + Math.signum(sy) * 0.05;
         h.state().set(ModuleDef.H_SCALE, s);
         selected = h;

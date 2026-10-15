@@ -1,0 +1,32 @@
+// The Lock Launcher: external desktop application (Swing + FlatLaf). It installs the Lock profile
+// into the official Minecraft Launcher, discovers running games, shows live runtime status and edits
+// configuration (synchronised with the running game over the local IPC channel).
+dependencies {
+    implementation project(':core')
+    implementation 'com.formdev:flatlaf:3.5.4'
+}
+
+evaluationDependsOn(':agent')
+
+processResources {
+    // the agent jar ships inside the launcher and is copied into .minecraft on install
+    from(project(':agent').tasks.named('jar')) { rename { 'lock-agent.jar' } }
+    from(project(':client').file('src/main/resources/assets/lock/fonts')) { into 'fonts' }
+    dependsOn ':agent:jar'
+}
+
+jar {
+    archiveBaseName = 'lock-launcher'
+    manifest { attributes('Main-Class': 'dev.lock.launcher.LauncherMain', 'Implementation-Version': project.version) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } } {
+        exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/MANIFEST.MF', 'module-info.class'
+    }
+}
+
+tasks.register('run', JavaExec) {
+    group = 'lock'
+    description = 'Runs the Lock Launcher.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.lock.launcher.LauncherMain'
+}

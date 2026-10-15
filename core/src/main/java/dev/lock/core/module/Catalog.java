@@ -211,14 +211,15 @@ public final class Catalog {
         // ---------------------------------------------------------------- Interface
         l.add(ModuleDef.builder("click_gui", "Click GUI", INTERFACE).system()
                 .desc("The in-game module manager.").tags("menu", "settings")
-                .key("openKey", "Open key", KEY_RIGHT_SHIFT, "").num("scale", "GUI scale", 1.0, 0.6, 2.0, 0.05, "Size of the Click GUI, independent of Minecraft's GUI scale.")
+                .key("openKey", "Open key", KEY_RIGHT_SHIFT, "").num("scale", "GUI scale", 0.85, 0.5, 2.0, 0.05, "Size of the Click GUI, independent of Minecraft's GUI scale. Ctrl+scroll in the GUI changes it live.")
                 .bool("tooltips", "Tooltips", true).bool("animations", "Animations", true).bool("pause", "Pause singleplayer", false).build());
         l.add(ModuleDef.builder("hud_editor", "HUD Editor", INTERFACE).system()
                 .desc("Drag, scale and align HUD elements.").tags("layout", "position")
                 .bool("snap", "Grid snapping", true).num("grid", "Grid size", 4, 2, 16, 1).bool("guides", "Alignment guides", true).build());
         l.add(ModuleDef.builder("hud_settings", "Visual Scale", INTERFACE).system()
                 .desc("Global scale and visibility rules for all Lock HUD elements.").tags("scale")
-                .num("scale", "Global HUD scale", 1.0, 0.5, 2.0, 0.05)
+                .num("scale", "Global HUD scale", 0.9, 0.4, 2.0, 0.05, "Scroll on empty space in the HUD editor to change it live.")
+                .choice("textRenderer", "Text renderer", "Smooth", "Smooth: Lock's anti-aliased font. Fast: Minecraft's batched pixel font (lowest CPU cost).", "Smooth", "Fast")
                 .bool("followGuiScale", "Follow Minecraft GUI scale", false, "Off: the HUD keeps the same physical size at every vanilla GUI scale.")
                 .bool("autoPlace", "Avoid overlaps when enabling", true, "Newly enabled elements move to the nearest free spot.")
                 .bool("hideInDebug", "Hide with F3 screen", true)

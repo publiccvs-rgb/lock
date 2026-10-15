@@ -61,6 +61,7 @@ public final class Diagnostics {
             e.put("faulted", lock.modules.faulted(mod.def.id));
             e.put("errors", mod.errorCount());
             e.put("support", mod.def.support.name());
+            if (mod instanceof dev.lock.client.module.HudModule h && h.active()) e.put("renderMicros", h.lastRenderNanos / 1000);
             m.put(mod.def.id, e);
         }
         return m;
