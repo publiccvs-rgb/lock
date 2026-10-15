@@ -12,5 +12,5 @@ public class NameTags extends Module {
     public final ModeSetting color = add(new ModeSetting("Color", "Health", "Health", "Accent", "Team")).d("What the bar is tinted by.");
     public final NumSetting scale = add(new NumSetting("Scale", 1.0, 0.6, 1.5, 0.1)).d("Overall size of the tag.");
 
-    public NameTags() { super("NameTags", "Clean tags with health above heads", true); }
+    public NameTags() { super("NameTags", "Clean tags with health above heads", Category.PLAYER, true); }
 }

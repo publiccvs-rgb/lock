@@ -19,7 +19,7 @@ public class General extends Module {
     public final BoolSetting teammates = add(new BoolSetting("Teammates", true)).d("Include players on your own team.");
     public final NumSetting range = add(new NumSetting("Range", 96, 16, 256, 8)).d("Entities further than this are not drawn (blocks).");
 
-    public General() { super("General", "Accent colour and who gets drawn", true); }
+    public General() { super("General", "Accent colour and who gets drawn", Category.PLAYER, true); }
 
     public boolean valid(Entity e) {
         Minecraft mc = Minecraft.getInstance();

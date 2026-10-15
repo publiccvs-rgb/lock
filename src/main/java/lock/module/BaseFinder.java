@@ -72,7 +72,7 @@ public class BaseFinder extends Module {
     public volatile float[] hoverScreen;
     public volatile int scannedChunks, queued;
 
-    public BaseFinder() { super("BaseFinder", "Marks chunks with signs of player activity", false); }
+    public BaseFinder() { super("BaseFinder", "Marks chunks with signs of player activity", Category.WORLD, false); }
 
     @Override public void onDisable() { results.clear(); shown = List.of(); hover = null; stopPool(); }
 

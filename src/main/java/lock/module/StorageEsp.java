@@ -13,7 +13,7 @@ public class StorageEsp extends Module {
     public final BoolSetting fill = add(new BoolSetting("Fill", true)).d("Adds a faint translucent fill.");
     public final NumSetting range = add(new NumSetting("Range", 64, 16, 128, 8)).d("Containers further than this are not drawn (blocks).");
 
-    public StorageEsp() { super("StorageESP", "Containers through walls", true); }
+    public StorageEsp() { super("StorageESP", "Containers through walls", Category.WORLD, true); }
 
     /** RGB for a container the user wants drawn, or -1 to skip it. */
     public int colorFor(BlockEntity be) {

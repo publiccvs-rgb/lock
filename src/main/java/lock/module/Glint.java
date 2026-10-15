@@ -29,7 +29,7 @@ public class Glint extends Module {
     private double lastStrength = -1;
     private double savedStrength = -1, savedSpeed = -1;
 
-    public Glint() { super("EnchantShader", "Recolor the enchantment glint", false); }
+    public Glint() { super("EnchantShader", "Recolor the enchantment glint", Category.RENDER, false); }
 
     public int rgb() {
         long t = System.currentTimeMillis();

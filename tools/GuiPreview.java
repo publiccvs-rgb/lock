@@ -32,31 +32,29 @@ public final class GuiPreview {
             if (x1 > x0 && y1 > y0 && (argb >>> 24) != 0) fill(x0, y0, x1, y1, argb);
         }
         @Override public void round(float x, float y, float w, float h, float r, int argb) { roundEx(x, y, w, h, r, r, r, r, argb); }
-        static int radius(float r, int W, int H) { return Math.max(0, Math.min(Math.min((int) Math.floor(r + 0.35f), 8), Math.min(W, H) / 2)); }
-        static int[] inset(int r) {
-            int[] t = new int[r];
-            for (int i = 0; i < r; i++) { double dy = r - i - 0.5; t[i] = r - (int) Math.round(Math.sqrt(r * r - dy * dy)); }
-            return t;
-        }
-        // identical to McGfx.roundEx so the preview shows the exact stepped corners the game will draw
+        // True vector anti-aliasing (what the shader-free real client now approximates with per-pixel edge
+        // coverage): a Path2D built from four quarter-circle arcs, one per corner radius, filled with AA on.
         @Override public void roundEx(float x, float y, float w, float h, float tl, float tr, float br, float bl, int argb) {
-            if ((argb >>> 24) == 0) return;
-            int x0 = Math.round(x), y0 = Math.round(y);
-            int W = Math.round(x + w) - x0, H = Math.round(y + h) - y0;
-            if (W <= 0 || H <= 0) return;
-            int rtl = radius(tl, W, H), rtr = radius(tr, W, H), rbr = radius(br, W, H), rbl = radius(bl, W, H);
-            int top = Math.max(rtl, rtr), bot = Math.max(rbl, rbr);
-            if (top + bot > H) { top = Math.min(top, H / 2); bot = Math.min(bot, H - top); }
-            if (H - top - bot > 0) fill(x0, y0 + top, x0 + W, y0 + H - bot, argb);
-            for (int i = 0; i < top; i++) {
-                int l = i < rtl ? inset(rtl)[i] : 0, r = i < rtr ? inset(rtr)[i] : 0;
-                fill(x0 + l, y0 + i, x0 + W - r, y0 + i + 1, argb);
-            }
-            for (int i = 0; i < bot; i++) {
-                int l = i < rbl ? inset(rbl)[i] : 0, r = i < rbr ? inset(rbr)[i] : 0;
-                fill(x0 + l, y0 + H - 1 - i, x0 + W - r, y0 + H - i, argb);
-            }
+            if ((argb >>> 24) == 0 || w <= 0 || h <= 0) return;
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            float X = x * S, Y = y * S, W2 = w * S, H2 = h * S;
+            float rtl = Math.min(tl * S, Math.min(W2, H2) / 2), rtr = Math.min(tr * S, Math.min(W2, H2) / 2);
+            float rbr = Math.min(br * S, Math.min(W2, H2) / 2), rbl = Math.min(bl * S, Math.min(W2, H2) / 2);
+            java.awt.geom.Path2D.Float p = new java.awt.geom.Path2D.Float();
+            p.moveTo(X + rtl, Y);
+            p.lineTo(X + W2 - rtr, Y);
+            if (rtr > 0) p.quadTo(X + W2, Y, X + W2, Y + rtr);
+            p.lineTo(X + W2, Y + H2 - rbr);
+            if (rbr > 0) p.quadTo(X + W2, Y + H2, X + W2 - rbr, Y + H2);
+            p.lineTo(X + rbl, Y + H2);
+            if (rbl > 0) p.quadTo(X, Y + H2, X, Y + H2 - rbl);
+            p.lineTo(X, Y + rtl);
+            if (rtl > 0) p.quadTo(X, Y, X + rtl, Y);
+            p.closePath();
+            g.setColor(c(argb));
+            g.fill(p);
         }
+
         // Liberation Sans is metric-compatible with Arial, which is what the game loads from the system
         static final Font BASE = new Font("Liberation Sans", Font.PLAIN, 12), BOLD = new Font("Liberation Sans", Font.BOLD, 12);
         Font face(float scale, boolean bold) { return (bold ? BOLD : BASE).deriveFont(8.6f * S * scale); }
@@ -77,18 +75,27 @@ public final class GuiPreview {
             return ((int) (aa + (ba - aa) * t) << 24) | ((int) (ar + (br - ar) * t) << 16) | ((int) (ag + (bg - ag) * t) << 8) | (int) (ab + (bb - ab) * t);
         }
         @Override public void gradient(float x, float y, float w, float h, float tl, float tr, float br, float bl, int top, int bottom) {
-            int x0 = Math.round(x), y0 = Math.round(y);
-            int W = Math.round(x + w) - x0, H = Math.round(y + h) - y0;
-            if (W <= 0 || H <= 0) return;
-            int rtl = radius(tl, W, H), rtr = radius(tr, W, H), rbr = radius(br, W, H), rbl = radius(bl, W, H);
-            for (int i = 0; i < H; i++) {
-                int l = 0, r = 0;
-                if (i < Math.max(rtl, rtr)) { l = i < rtl ? inset(rtl)[i] : 0; r = i < rtr ? inset(rtr)[i] : 0; }
-                int fromBottom = H - 1 - i;
-                if (fromBottom < Math.max(rbl, rbr)) { l = Math.max(l, fromBottom < rbl ? inset(rbl)[fromBottom] : 0); r = Math.max(r, fromBottom < rbr ? inset(rbr)[fromBottom] : 0); }
-                fill(x0 + l, y0 + i, x0 + W - r, y0 + i + 1, lerp(top, bottom, (i + 0.5f) / H));
-            }
+            if (w <= 0 || h <= 0) return;
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            float X = x * S, Y = y * S, W2 = w * S, H2 = h * S;
+            float rtl = Math.min(tl * S, Math.min(W2, H2) / 2), rtr = Math.min(tr * S, Math.min(W2, H2) / 2);
+            float rbr = Math.min(br * S, Math.min(W2, H2) / 2), rbl = Math.min(bl * S, Math.min(W2, H2) / 2);
+            java.awt.geom.Path2D.Float p = new java.awt.geom.Path2D.Float();
+            p.moveTo(X + rtl, Y);
+            p.lineTo(X + W2 - rtr, Y);
+            if (rtr > 0) p.quadTo(X + W2, Y, X + W2, Y + rtr);
+            p.lineTo(X + W2, Y + H2 - rbr);
+            if (rbr > 0) p.quadTo(X + W2, Y + H2, X + W2 - rbr, Y + H2);
+            p.lineTo(X + rbl, Y + H2);
+            if (rbl > 0) p.quadTo(X, Y + H2, X, Y + H2 - rbl);
+            p.lineTo(X, Y + rtl);
+            if (rtl > 0) p.quadTo(X, Y, X + rtl, Y);
+            p.closePath();
+            g.setPaint(new GradientPaint(X, Y, c(top), X, Y + H2, c(bottom)));
+            g.fill(p);
+            g.setPaint(null);
         }
+
         @Override public void push(float x, float y, float scale) {
             saved.push(g.getTransform());
             g.translate(x * S, y * S);
@@ -97,8 +104,11 @@ public final class GuiPreview {
         final ArrayDeque<java.awt.geom.AffineTransform> saved = new ArrayDeque<>();
         @Override public void pop() { g.setTransform(saved.pop()); }
         @Override public void tri(float x1, float y1, float x2, float y2, float x3, float y3, int argb) {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(c(argb));
-            g.fillPolygon(new int[] {Math.round(x1 * S), Math.round(x2 * S), Math.round(x3 * S)}, new int[] {Math.round(y1 * S), Math.round(y2 * S), Math.round(y3 * S)}, 3);
+            java.awt.geom.Path2D.Float p = new java.awt.geom.Path2D.Float();
+            p.moveTo(x1 * S, y1 * S); p.lineTo(x2 * S, y2 * S); p.lineTo(x3 * S, y3 * S); p.closePath();
+            g.fill(p);
         }
         @Override public void clip(float x, float y, float w, float h) {
             Shape cur = g.getClip();
@@ -109,7 +119,25 @@ public final class GuiPreview {
         @Override public void unclip() { Shape s = clips.pop(); g.setClip(s.getBounds().width >= 1 << 14 ? null : s); }
     }
 
-    static BufferedImage scene() {
+    /**
+     * A real in-game backdrop built from the actual Minecraft block textures (grass/dirt top, sky), not a
+     * flat placeholder - set -Dlock.bg=/path/to/image.png to point at one (see tools/mc_background.py).
+     * Falls back to a flat sky/ground placeholder only if that property is unset or unreadable.
+     */
+    static BufferedImage scene() throws Exception {
+        String path = System.getProperty("lock.bg");
+        if (path != null) {
+            File f = new File(path);
+            if (f.isFile()) {
+                BufferedImage src = ImageIO.read(f);
+                BufferedImage img = new BufferedImage(W * S, H * S, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g = img.createGraphics();
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.drawImage(src, 0, 0, W * S, H * S, null);
+                g.dispose();
+                return img;
+            }
+        }
         BufferedImage img = new BufferedImage(W * S, H * S, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
         g.setPaint(new GradientPaint(0, 0, new Color(0x8DB8F2), 0, 700, new Color(0xC9DDF6)));

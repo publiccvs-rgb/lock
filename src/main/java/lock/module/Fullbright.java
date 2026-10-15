@@ -6,7 +6,7 @@ import net.minecraft.world.effect.MobEffects;
 
 /** Client-side night vision; never sent to the server. */
 public class Fullbright extends Module {
-    public Fullbright() { super("Fullbright", "See in the dark", false); }
+    public Fullbright() { super("Fullbright", "See in the dark", Category.RENDER, false); }
 
     @Override public void onTick() {
         Minecraft mc = Minecraft.getInstance();

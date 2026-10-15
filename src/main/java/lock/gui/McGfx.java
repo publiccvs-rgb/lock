@@ -10,7 +10,8 @@ import java.util.HashMap;
  * so a full frame is a few hundred cheap fills with no allocation.
  */
 public final class McGfx implements Gfx {
-    private static final int[][] INSETS = new int[9][];
+    /** Exact (sub-pixel) left inset of a circular corner's boundary at each row, indexed [radius][row]. */
+    private static final float[][] EXACT = new float[9][];
     private static final HashMap<String, Float> WIDTHS = new HashMap<>();
 
     private final GuiGraphics g;
@@ -19,15 +20,15 @@ public final class McGfx implements Gfx {
 
     public McGfx(GuiGraphics g) { this.g = g; }
 
-    private static int[] insets(int r) {
-        int[] t = INSETS[r];
+    private static float[] exact(int r) {
+        float[] t = EXACT[r];
         if (t == null) {
-            t = new int[r];
+            t = new float[r];
             for (int i = 0; i < r; i++) {
                 double dy = r - i - 0.5;
-                t[i] = r - (int) Math.round(Math.sqrt(r * r - dy * dy));
+                t[i] = r - (float) Math.sqrt(Math.max(0, r * r - dy * dy));
             }
-            INSETS[r] = t;
+            EXACT[r] = t;
         }
         return t;
     }
@@ -43,6 +44,29 @@ public final class McGfx implements Gfx {
         int x0 = Math.round(x), y0 = Math.round(y);
         int x1 = Math.round(x + w), y1 = Math.round(y + h);
         if (x1 > x0 && y1 > y0 && (argb >>> 24) != 0) g.fill(x0, y0, x1, y1, a(argb));
+    }
+
+    /**
+     * Fills one screen row between exact (sub-pixel) x bounds with true edge-coverage anti-aliasing: the
+     * interior is one solid fill, and each boundary gets a single extra column blended at partial alpha
+     * equal to how much of that pixel the shape actually covers. This works because every fill in this
+     * renderer is already alpha-composited onto whatever was drawn before - no shader needed, just real
+     * fractional coverage instead of a hard round() step.
+     */
+    private void fillAA(float xLo, float xHi, int y, int argb) {
+        if (xHi <= xLo || (argb >>> 24) == 0) return;
+        int loFloor = (int) Math.floor(xLo), hiFloor = (int) Math.floor(xHi);
+        int solidL = (int) Math.ceil(xLo), solidR = hiFloor;
+        if (solidL < solidR) g.fill(solidL, y, solidR, y + 1, argb);
+        float leftCov = solidL - xLo;           // fraction of the boundary pixel actually covered
+        if (leftCov > 0.004f && loFloor < solidL) g.fill(loFloor, y, loFloor + 1, y + 1, withCoverage(argb, leftCov));
+        float rightCov = xHi - hiFloor;
+        if (rightCov > 0.004f && hiFloor >= solidR) g.fill(hiFloor, y, hiFloor + 1, y + 1, withCoverage(argb, rightCov));
+    }
+
+    private static int withCoverage(int argb, float cov) {
+        int a = Math.round(((argb >>> 24) & 255) * Math.min(1f, Math.max(0f, cov)));
+        return (a << 24) | (argb & 0xFFFFFF);
     }
 
     @Override public void round(float x, float y, float w, float h, float r, int argb) {
@@ -64,12 +88,12 @@ public final class McGfx implements Gfx {
         if (top + bot > H) { top = Math.min(top, H / 2); bot = Math.min(bot, H - top); }
         if (H - top - bot > 0) g.fill(x0, y0 + top, x0 + W, y0 + H - bot, argb);
         for (int i = 0; i < top; i++) {
-            int l = i < rtl ? insets(rtl)[i] : 0, r = i < rtr ? insets(rtr)[i] : 0;
-            g.fill(x0 + l, y0 + i, x0 + W - r, y0 + i + 1, argb);
+            float l = i < rtl ? exact(rtl)[i] : 0, r = i < rtr ? exact(rtr)[i] : 0;
+            fillAA(x0 + l, x0 + W - r, y0 + i, argb);
         }
         for (int i = 0; i < bot; i++) {
-            int l = i < rbl ? insets(rbl)[i] : 0, r = i < rbr ? insets(rbr)[i] : 0;
-            g.fill(x0 + l, y0 + H - 1 - i, x0 + W - r, y0 + H - i, argb);
+            float l = i < rbl ? exact(rbl)[i] : 0, r = i < rbr ? exact(rbr)[i] : 0;
+            fillAA(x0 + l, x0 + W - r, y0 + H - 1 - i, argb);
         }
     }
 
@@ -86,12 +110,12 @@ public final class McGfx implements Gfx {
             g.fillGradient(x0, y0 + tp, x0 + W, y0 + H - bt, ct, cb);
         }
         for (int i = 0; i < tp; i++) {
-            int l = i < rtl ? insets(rtl)[i] : 0, r = i < rtr ? insets(rtr)[i] : 0;
-            g.fill(x0 + l, y0 + i, x0 + W - r, y0 + i + 1, lerp(t, b, (i + 0.5f) / H));
+            float l = i < rtl ? exact(rtl)[i] : 0, r = i < rtr ? exact(rtr)[i] : 0;
+            fillAA(x0 + l, x0 + W - r, y0 + i, lerp(t, b, (i + 0.5f) / H));
         }
         for (int i = 0; i < bt; i++) {
-            int l = i < rbl ? insets(rbl)[i] : 0, r = i < rbr ? insets(rbr)[i] : 0;
-            g.fill(x0 + l, y0 + H - 1 - i, x0 + W - r, y0 + H - i, lerp(t, b, (H - i - 0.5f) / H));
+            float l = i < rbl ? exact(rbl)[i] : 0, r = i < rbr ? exact(rbr)[i] : 0;
+            fillAA(x0 + l, x0 + W - r, y0 + H - 1 - i, lerp(t, b, (H - i - 0.5f) / H));
         }
     }
 
@@ -137,7 +161,7 @@ public final class McGfx implements Gfx {
 
     @Override public void pop() { g.pose().popMatrix(); }
 
-    /** Scanline triangle: one fill per row, good enough for 8-12 px pointers. */
+    /** Scanline triangle with edge-coverage AA on the left/right boundary of every row (see {@link #fillAA}). */
     @Override public void tri(float x1, float y1, float x2, float y2, float x3, float y3, int argb) {
         argb = a(argb);
         float minY = Math.min(y1, Math.min(y2, y3)), maxY = Math.max(y1, Math.max(y2, y3));
@@ -149,7 +173,7 @@ public final class McGfx implements Gfx {
                 float xx = k[0] + (yc - k[1]) * (k[2] - k[0]) / (k[3] - k[1]);
                 lo = Math.min(lo, xx); hi = Math.max(hi, xx);
             }
-            if (hi > lo) g.fill(Math.round(lo), y, Math.round(hi), y + 1, argb);
+            if (hi > lo) fillAA(lo, hi, y, argb);
         }
     }
 

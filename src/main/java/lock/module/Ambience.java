@@ -15,5 +15,5 @@ public class Ambience extends Module {
     public final ModeSetting time = add(new ModeSetting("Time", "Auto", "Auto", "Day", "Sunset", "Night", "Midnight")).d("Locks the time of day on your screen only.");
     public final ModeSetting weather = add(new ModeSetting("Weather", "Auto", "Auto", "Clear")).d("Hides rain and thunder on your screen only.");
 
-    public Ambience() { super("Ambience", "Changes the ambience of the game", false); }
+    public Ambience() { super("Ambience", "Changes the ambience of the game", Category.WORLD, false); }
 }

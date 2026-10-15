@@ -8,5 +8,5 @@ public class Charms extends Module {
     public final NumSetting opacity = add(new NumSetting("Opacity", 0.45, 0.1, 0.9, 0.05)).d("How strongly the tint covers the model.");
     public final BoolSetting throughWalls = add(new BoolSetting("Through Walls", true)).d("Draws the tinted model even when blocks are in the way.");
 
-    public Charms() { super("Chams", "Tinted see-through player models", true); }
+    public Charms() { super("Chams", "Tinted see-through player models", Category.PLAYER, true); }
 }

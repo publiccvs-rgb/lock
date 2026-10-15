@@ -47,11 +47,16 @@ public final class GuiView {
     private static final class Panel {
         final String id, title;
         final boolean draggable;
+        final Module.Category category;      // non-null for a module-list column; null for settings/profiles
         float x, y, h, w = PW;
         boolean collapsed;
         final Anim expand = new Anim(1), appear = new Anim(0), scroll = new Anim(0);
         float contentH, viewH, delay;
-        Panel(String id, String title, boolean draggable) { this.id = id; this.title = title; this.draggable = draggable; }
+        Module[] mods = {};
+        ModState[] states = {};
+        Panel(String id, String title, boolean draggable, Module.Category category) {
+            this.id = id; this.title = title; this.draggable = draggable; this.category = category;
+        }
     }
 
     // ---- hit pool -----------------------------------------------------------
@@ -64,14 +69,15 @@ public final class GuiView {
     private int hn;
 
     private final ModuleManager mods;
-    private final Panel sidebar = new Panel("sidebar", "", false);
-    private final Panel render = new Panel("render", "Render", true);
-    private final Panel settings = new Panel("settings", "Settings", true);
-    private final Panel profiles = new Panel("profiles", "Profiles", true);
-    private final Panel[] order = {sidebar, render, settings, profiles};
+    private final Panel sidebar = new Panel("sidebar", "", false, null);
+    private final Panel player = new Panel("player", "Player", true, Module.Category.PLAYER);
+    private final Panel world = new Panel("world", "World", true, Module.Category.WORLD);
+    private final Panel renderCat = new Panel("render", "Render", true, Module.Category.RENDER);
+    private final Panel settings = new Panel("settings", "Settings", true, null);
+    private final Panel profiles = new Panel("profiles", "Profiles", true, null);
+    private final Panel[] columns = {player, world, renderCat};
+    private final Panel[] order = {sidebar, player, world, renderCat, settings, profiles};
 
-    private final Module[] list;
-    private final ModState[] ms;
     private final IdentityHashMap<Setting<?>, SetState> sstate = new IdentityHashMap<>();
     private final Set<Module> expandedSet = new HashSet<>();
     private final Anim master = new Anim(0);
@@ -93,13 +99,20 @@ public final class GuiView {
 
     public GuiView(ModuleManager mods) {
         this.mods = mods;
-        List<Module> l = new ArrayList<>();
-        for (Module m : mods.all) if (!(m instanceof General)) l.add(m);
-        l.sort(Comparator.comparing(m -> m.name.toLowerCase(Locale.ROOT)));
-        list = l.toArray(new Module[0]);
-        ms = new ModState[list.length];
-        for (int i = 0; i < list.length; i++) ms[i] = new ModState(list[i]);
+        for (Panel col : columns) {
+            List<Module> l = new ArrayList<>();
+            for (Module m : mods.all) if (!(m instanceof General) && m.category == col.category) l.add(m);
+            l.sort(Comparator.comparing(m -> m.name.toLowerCase(Locale.ROOT)));
+            col.mods = l.toArray(new Module[0]);
+            col.states = new ModState[col.mods.length];
+            for (int i = 0; i < col.mods.length; i++) col.states[i] = new ModState(col.mods[i]);
+        }
         master.t = 1;
+    }
+
+    private ModState stateOf(Module m) {
+        for (Panel col : columns) for (ModState s : col.states) if (s.m == m) return s;
+        return null;
     }
 
     private int accent() { return 0xFF000000 | mods.general.accent.get(); }
@@ -113,7 +126,8 @@ public final class GuiView {
     /** Used by the preview tool: pre-open a module and skip entrance animations. */
     public void open(Module m) {
         expandedSet.add(m);
-        for (ModState s : ms) if (s.m == m) s.open.snap(1);
+        ModState s = stateOf(m);
+        if (s != null) s.open.snap(1);
     }
 
     public void settle() {
@@ -162,7 +176,7 @@ public final class GuiView {
         float x = MARGIN;
         sidebar.x = x; sidebar.y = MARGIN;
         x += SIDEW + GAP;
-        for (Panel p : new Panel[] {render, settings, profiles}) {
+        for (Panel p : new Panel[] {player, world, renderCat, settings, profiles}) {
             p.x = x; p.y = MARGIN;
             x += PW + GAP;
             float[] saved = mods.guiLayout.get(p.id);
@@ -171,7 +185,7 @@ public final class GuiView {
         }
         int i = 0;
         for (Panel p : order) { p.delay = i++ * 0.05f; p.appear.snap(0); }
-        for (ModState s : ms) if (expandedSet.contains(s.m)) s.open.snap(1);
+        for (Panel col : columns) for (ModState s : col.states) if (expandedSet.contains(s.m)) s.open.snap(1);
     }
 
     private void step(float dt, int mx, int my) {
@@ -193,12 +207,14 @@ public final class GuiView {
             Panel p = order[i];
             if (mx >= p.x && mx < p.x + p.w && my >= p.y && my < p.y + Math.max(p.h, HEAD)) { hoverPanel = p; break; }
         }
-        for (ModState s : ms) {
-            s.on.t = s.m.enabled() ? 1f : 0f;
-            s.on.step(kMed);
-            s.open.t = expandedSet.contains(s.m) ? 1f : 0f;
-            s.open.step(kMed);
-            s.hover.step(kFast);
+        for (Panel col : columns) {
+            for (ModState s : col.states) {
+                s.on.t = s.m.enabled() ? 1f : 0f;
+                s.on.step(kMed);
+                s.open.t = expandedSet.contains(s.m) ? 1f : 0f;
+                s.open.step(kMed);
+                s.hover.step(kFast);
+            }
         }
         for (SetState st : sstate.values()) { st.on.step(kMed); st.val.step(kFast); st.hover.step(kFast); }
         tip.t = (!tipText.isEmpty() && hoverTime > 0.45f) ? 1f : 0f;
@@ -214,10 +230,21 @@ public final class GuiView {
         g.round(x, y, w, h, PR, fill);
     }
 
+    private static final String[] NAV_NAMES = {"Player", "World", "Render", "Settings"};
+
+    private void navIcon(Gfx g, int i, float x, float y, int c, int bg) {
+        switch (i) {
+            case 0 -> Icons.user(g, x, y, c);
+            case 1 -> Icons.globe(g, x, y, c, bg);
+            case 2 -> Icons.eye(g, x, y, c, bg);
+            default -> Icons.gear(g, x, y, c, bg);
+        }
+    }
+
     private void drawSidebar(Gfx g, Panel p, float x, float y, int mx, int my) {
         int acc = accent();
         float w = p.w;
-        float h = 26 + 2 * ROW + 16 + ROW + 22;
+        float h = 26 + NAV_NAMES.length * ROW + 16 + ROW + 22;
         p.h = h;
         frame(g, x, y, w, h, Theme.SIDEBAR);
         add(T_PANEL, x, y, w, h, null, 0, p);
@@ -229,14 +256,15 @@ public final class GuiView {
         g.rect(x + 8, y + 25, w - 16, 1, Theme.DIVIDER);
 
         float iy = y + 28;
-        String[] names = {"Render", "Settings"};
-        for (int i = 0; i < 2; i++) {
+        Panel[] navPanels = {player, world, renderCat, settings};
+        for (int i = 0; i < NAV_NAMES.length; i++) {
             boolean hov = hoverPanel == p && inside(mx, my, x, iy, w, ROW);
             if (hov) g.rect(x, iy, w, ROW, Theme.ROW_HOVER);
             int rowBg = hov ? Theme.ROW_HOVER : Theme.SIDEBAR;
-            if (i == 0) Icons.eye(g, x + 12, iy + 7, acc, rowBg); else Icons.gear(g, x + 12, iy + 7, acc, rowBg);
-            g.text(names[i], x + 30, iy + 7, acc, 0.95f, true);
+            navIcon(g, i, x + 12, iy + 7, acc, rowBg);
+            g.text(NAV_NAMES[i], x + 30, iy + 7, acc, 0.95f, true);
             Icons.chevron(g, x + w - 14, iy + 9, 2, Theme.DIM);
+            add(T_COLLAPSE, x, iy, w, ROW, navPanels[i], 0, p);
             iy += ROW;
         }
 
@@ -264,6 +292,8 @@ public final class GuiView {
         g.roundEx(x, y, p.w, HEAD, PR, PR, 0, 0, Theme.HEADER);
         g.rect(x, y + HEAD - 1, p.w, 1, Theme.DIVIDER);
         switch (p.id) {
+            case "player" -> Icons.user(g, x + 11, y + 8, Theme.TITLE);
+            case "world" -> Icons.globe(g, x + 11, y + 8, Theme.TITLE, Theme.HEADER);
             case "render" -> Icons.eye(g, x + 11, y + 8, Theme.TITLE, Theme.HEADER);
             case "settings" -> Icons.gear(g, x + 10, y + 8, Theme.TITLE, Theme.HEADER);
             default -> Icons.list(g, x + 10, y + 8, Theme.TITLE);
@@ -278,7 +308,7 @@ public final class GuiView {
     private void drawPanel(Gfx g, Panel p, float x, float y, int mx, int my) {
         int acc = accent();
         float bodyTop = y + HEAD;
-        float contentH = p == render ? renderContentH() : p == settings ? settingsContentH() : profilesContentH();
+        float contentH = p.category != null ? renderContentH(p) : p == settings ? settingsContentH() : profilesContentH();
         p.contentH = contentH;
         float maxView = Math.max(60, sh - bodyTop - MARGIN);
         p.viewH = Math.min(contentH, maxView);
@@ -299,15 +329,14 @@ public final class GuiView {
         g.clip(x + 1, bodyTop, p.w - 2, visible + 3);
         float cy = bodyTop - p.scroll.v + 2;
         float clipT = bodyTop, clipB = bodyTop + visible;
-        switch (p.id) {
-            case "render" -> drawRenderBody(g, p, x, cy, clipT, clipB, mx, my, acc);
-            case "settings" -> {
-                for (Setting<?> s : mods.general.settings) {
-                    if (s instanceof BindSetting) continue;
-                    cy += drawSetting(g, p, s, x, cy, clipT, clipB, mx, my, acc, false);
-                }
+        if (p.category != null) drawRenderBody(g, p, x, cy, clipT, clipB, mx, my, acc);
+        else if (p == settings) {
+            for (Setting<?> s : mods.general.settings) {
+                if (s instanceof BindSetting) continue;
+                cy += drawSetting(g, p, s, x, cy, clipT, clipB, mx, my, acc, false);
             }
-            default -> drawProfilesBody(g, p, x, cy, acc);
+        } else {
+            drawProfilesBody(g, p, x, cy, acc);
         }
         g.unclip();
 
@@ -319,16 +348,16 @@ public final class GuiView {
     }
 
     // ---- render panel (module list) ----
-    private float renderContentH() {
+    private float renderContentH(Panel p) {
         float h = 4;
-        for (ModState s : ms) h += ROW + settingsHeight(s.m) * s.open.v;
+        for (ModState s : p.states) h += ROW + settingsHeight(s.m) * s.open.v;
         return h;
     }
 
     private void drawRenderBody(Gfx g, Panel p, float x, float y, float clipT, float clipB, int mx, int my, int acc) {
         String newTip = "";
-        for (int i = 0; i < ms.length; i++) {
-            ModState s = ms[i];
+        for (int i = 0; i < p.states.length; i++) {
+            ModState s = p.states[i];
             Module m = s.m;
             float sh2 = settingsHeight(m) * s.open.v;
             float rowH = ROW + sh2;

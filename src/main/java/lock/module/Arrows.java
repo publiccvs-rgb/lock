@@ -9,5 +9,5 @@ public class Arrows extends Module {
     public final NumSetting size = add(new NumSetting("Size", 1.0, 0.6, 1.6, 0.1)).d("Pointer size.");
     public final BoolSetting distance = add(new BoolSetting("Distance", true)).d("Shows blocks away under each pointer.");
 
-    public Arrows() { super("Arrows", "Pointers to players off screen", false); }
+    public Arrows() { super("Arrows", "Pointers to players off screen", Category.PLAYER, false); }
 }

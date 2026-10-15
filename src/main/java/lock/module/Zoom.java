@@ -9,7 +9,7 @@ public class Zoom extends Module {
     private double current = 1.0;
     private long last = System.nanoTime();
 
-    public Zoom() { super("Zoom", "Magnify the view while active", false); }
+    public Zoom() { super("Zoom", "Magnify the view while active", Category.RENDER, false); }
 
     /** Per-frame smoothed zoom factor (1.0 = off). Called from the FOV hook, so it also eases back out. */
     public double factor() {

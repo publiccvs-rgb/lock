@@ -14,7 +14,7 @@ public class Freecam extends Module {
     public boolean active;
     private double vx, vy, vz;
 
-    public Freecam() { super("Freecam", "Detach the camera from your body", false); }
+    public Freecam() { super("Freecam", "Detach the camera from your body", Category.RENDER, false); }
 
     @Override public void onEnable() {
         Minecraft mc = Minecraft.getInstance();
