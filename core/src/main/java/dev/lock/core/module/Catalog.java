@@ -53,7 +53,7 @@ public final class Catalog {
         l.add(ModuleDef.builder("waypoint_markers", "Waypoint Markers", VISUALS).group("world").enabled()
                 .desc("Draws your saved waypoints as on-screen markers at their world positions.").tags("waypoint", "beacon")
                 .bool("showName", "Show name", true).bool("showDistance", "Show distance", true)
-                .num("maxDistance", "Max distance", 5000, 16, 100000, 16).num("scale", "Marker scale", 1.0, 0.5, 2.5, 0.05)
+                .num("maxDistance", "Max distance", 5000, 8, 100000, 8).num("scale", "Marker scale", 1.0, 0.5, 2.5, 0.05)
                 .bool("fadeCenter", "Fade near crosshair", true, "Fades markers close to the screen centre.")
                 .bool("edgeArrows", "Off-screen arrows", false, "Clamp markers behind you to the screen edge.")
                 .build());

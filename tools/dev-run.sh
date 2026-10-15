@@ -15,6 +15,6 @@ CP="$(paste -sd: "$MC/libraries.txt"):$MC/client.jar"
 ASSET_INDEX="$(basename "$(ls "$MC"/assets/indexes/*.json | head -n1)" .json)"
 exec env LP_NUM_THREADS="${LP_NUM_THREADS:-}" java -Xmx2G -Dlock.home="$LOCK_HOME" \
   -Dorg.lwjgl.system.SharedLibraryExtractPath="$MC/natives" \
-  -javaagent:"$AGENT" -cp "$CP" net.minecraft.client.main.Main \
+  -javaagent:"$AGENT${LOCK_AGENT_ARGS:+=$LOCK_AGENT_ARGS}" -cp "$CP" net.minecraft.client.main.Main \
   --username LockDev --version "$VER" --gameDir "$RUN" --assetsDir "$MC/assets" --assetIndex "$ASSET_INDEX" \
   --accessToken 0 --userType legacy --versionType release --width "${MC_WIDTH:-1280}" --height "${MC_HEIGHT:-720}" "$@"
