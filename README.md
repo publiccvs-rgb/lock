@@ -1,10 +1,13 @@
 # lock.
 
-Minimal visual client for Minecraft 1.21.11. Work in progress.
+Minimal visual client for Minecraft 1.21.11.
 
-- `loader/` - frameless loading window (Swing). Build: `javac -d out src/lock/loader/*.java && cp res/wordmark.png out/`, run: `java -cp out lock.loader.Loader`. Prebuilt: `dist/lock-loader.jar`.
-- `src/main/java/lock/gui` - in-game menu (Mojang-mapped 1.21.11). `GuiView` holds layout/animation/input and draws through `Gfx`, so `tools/GuiPreview.java` can render it headless.
-- `src/main/java/lock/module`, `setting` - modules and their settings.
-- `src/main/java/lock/render` - ESP rendering; being ported to the 1.21.11 render pipeline (excluded from the build for now).
+- `src/main/java/lock/basefinder` - chunk finder engine (pure Java, no game classes except `McScan`).
+  Bayesian scoring with natural-structure explanation, geometric tunnel detection, light/heightmap cross-checks
+  against block-rewriting plugins, neighbour support and a self-calibrating baseline.
+- `src/main/java/lock/module`, `render`, `gui`, `mixin` - modules, 1.21.11 renderer, menu, and the Fabric mixin layer.
+- `tools/BaseFinderTest.java` - synthetic-world checks for the finder: `javac` the engine + test, run `BaseFinderTest`.
+- `tools/GuiPreview.java`, `tools/FinderPreview.java` - headless renders of the menu and finder cards.
+- `loader/` - standalone loading window (Swing).
 
-Menu text uses Arial, read from the system's fonts (not bundled); falls back to Minecraft's font.
+Build: `./gradlew build` -> `build/libs/lock-0.2.0.jar` (Fabric Loader only; no Fabric API).
