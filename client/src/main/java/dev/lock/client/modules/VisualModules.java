@@ -26,21 +26,48 @@ public final class VisualModules {
 
         public boolean replacesVanilla() { return true; }
 
+        private float gapAnim = -1, targetAnim;
+        private long last = System.nanoTime(), hitAt;
+
+        /** Called when the player lands an attack on an entity: brief hit-marker flash. */
+        public void hit() { hitAt = System.currentTimeMillis(); }
+
         public void render(Gfx gfx) {
             if (mc.player == null || mc.options.hideGui) return;
             if (b("hideThirdPerson") && !mc.options.getCameraType().isFirstPerson()) return;
             if (mc.screen != null && !(mc.screen instanceof dev.lock.client.gui.LockScreen)) return;
+            long now = System.nanoTime();
+            float dt = Math.min(0.1f, (now - last) / 1e9f);
+            last = now;
             int cx = gfx.g.guiWidth() / 2, cy = gfx.g.guiHeight() / 2;
-            int size = i("size"), t = i("thickness"), gap = i("gap");
-            if (b("dynamicGap") && mc.player.getDeltaMovement().horizontalDistanceSqr() > 0.003) gap += 2;
-            int color = color("color");
-            if (b("targetColor") && mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY) color = color("targetColorValue");
+            int size = i("size"), t = i("thickness");
+            float wantGap = i("gap");
+            if (b("dynamicGap") && mc.player.getDeltaMovement().horizontalDistanceSqr() > 0.003) wantGap += 2.5f;
+            if (gapAnim < 0) gapAnim = wantGap;
+            gapAnim += (wantGap - gapAnim) * Math.min(1f, dt * 16f);
+            boolean target = b("targetColor") && mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY;
+            targetAnim += ((target ? 1f : 0f) - targetAnim) * Math.min(1f, dt * 18f);
+            int color = ThemeManager.blend(color("color"), color("targetColorValue"), targetAnim);
             gfx.alpha = (float) n("opacity");
-            boolean outline = b("outline");
-            int oc = color("outlineColor");
+            int gap = Math.round(gapAnim);
             String shape = s("shape");
-            if (outline) drawShape(gfx, shape, cx, cy, size, t, gap, oc, 1);
+            if (b("outline")) drawShape(gfx, shape, cx, cy, size, t, gap, color("outlineColor"), 1);
             drawShape(gfx, shape, cx, cy, size, t, gap, color, 0);
+            float h = (System.currentTimeMillis() - hitAt) / 260f;
+            if (h < 1f) {
+                // hit marker: four short diagonal strokes that push outward and fade
+                gfx.alpha = (float) n("opacity") * (1f - h);
+                gfx.push();
+                gfx.translate(cx + 0.5f, cy + 0.5f);
+                gfx.rotate((float) (Math.PI / 4));
+                int r0 = gap + 3 + Math.round(h * 3), len = 4;
+                int hc = ThemeManager.blend(0xFFFFFFFF, color("targetColorValue"), 0.35f);
+                gfx.fill(-1, -r0 - len, 1, -r0, hc);
+                gfx.fill(-1, r0, 1, r0 + len, hc);
+                gfx.fill(-r0 - len, -1, -r0, 1, hc);
+                gfx.fill(r0, -1, r0 + len, 1, hc);
+                gfx.pop();
+            }
             gfx.alpha = 1f;
         }
 
@@ -96,7 +123,11 @@ public final class VisualModules {
         }
     }
 
-    /** Projects saved waypoints onto the screen. */
+    /**
+     * Projects your saved waypoints onto the screen: a coloured core with a pulsing ring, a gentle bob,
+     * a label pill with distance, distance and crosshair fades, and animated edge arrows for
+     * waypoints that are off-screen or behind you.
+     */
     public static final class WaypointMarkers extends ClientModule {
         public WaypointMarkers(LockClient l) { super(l, "waypoint_markers"); }
 
@@ -109,12 +140,12 @@ public final class VisualModules {
             double yaw = Math.toRadians(cam.yRot()), pitch = Math.toRadians(cam.xRot());
             double fx = -Math.sin(yaw) * Math.cos(pitch), fy = -Math.sin(pitch), fz = Math.cos(yaw) * Math.cos(pitch);
             double rx = -Math.cos(yaw), rz = -Math.sin(yaw);
-            // up = right x forward
-            double ux = -rz * fy, uy = rz * fx - rx * fz, uz = rx * fy;
+            double ux = -rz * fy, uy = rz * fx - rx * fz, uz = rx * fy; // up = right x forward
             int w = gfx.g.guiWidth(), h = gfx.g.guiHeight();
             double tanHalf = Math.tan(Math.toRadians(lock.lastFov) / 2), aspect = (double) w / h;
             double maxDist = n("maxDistance");
             float scale = (float) n("scale");
+            long now = System.currentTimeMillis();
             Waypoint selected = lock.waypoints.selected();
             for (Waypoint wp : list) {
                 if (!wp.visible) continue;
@@ -123,42 +154,73 @@ public final class VisualModules {
                 if (dist > maxDist) continue;
                 double z = dx * fx + dy * fy + dz * fz;
                 double x = dx * rx + dz * rz, y = dx * ux + dy * uy + dz * uz;
-                boolean behind = z <= 0.05;
-                if (behind && !b("edgeArrows")) continue;
-                double sx, sy;
-                if (!behind) {
+                double sx = 0, sy = 0;
+                boolean onScreen = false;
+                if (z > 0.05) {
                     sx = w / 2.0 + (x / (z * tanHalf * aspect)) * w / 2.0;
                     sy = h / 2.0 - (y / (z * tanHalf)) * h / 2.0;
-                } else {
-                    sx = x > 0 ? w - 8 : 8; // behind the camera: pin to the side it is on
-                    sy = h / 2.0;
+                    onScreen = sx >= 6 && sx <= w - 6 && sy >= 6 && sy <= h - 6;
                 }
-                boolean offscreen = sx < 0 || sx > w || sy < 0 || sy > h;
-                if (offscreen && !b("edgeArrows")) continue;
-                sx = Math.max(8, Math.min(w - 8, sx));
-                sy = Math.max(8, Math.min(h - 8, sy));
-                float alpha = 1f;
-                if (b("fadeCenter")) {
-                    double d = Math.hypot(sx - w / 2.0, sy - h / 2.0);
-                    if (d < 40) alpha = (float) Math.max(0.25, d / 40);
-                }
-                String label = (b("showName") ? wp.name : "") + (b("showDistance") ? (b("showName") ? "  " : "") + Fmt.distance(dist) + "m" : "");
-                gfx.push();
-                gfx.translate((float) sx, (float) sy);
-                gfx.scale(scale);
-                gfx.alpha = alpha;
                 int col = ThemeManager.withAlpha(wp.color, 0xFF);
-                gfx.fill(-3, -3, 3, 3, 0xC0000000);
-                gfx.fill(-2, -2, 2, 2, col);
-                if (wp == selected) gfx.outline(-5, -5, 10, 10, col);
-                if (!label.isEmpty()) {
-                    int tw = gfx.width(label);
-                    gfx.round(-tw / 2 - 3, -17, tw / 2 + 3, -6, 0x90101114);
-                    gfx.text(label, -tw / 2, -15, 0xFFFFFFFF, false);
+                float fadeFar = (float) Math.min(1, Math.max(0.35, 1.0 - (dist / maxDist - 0.7) / 0.3));
+                float phase = (now + (wp.id.hashCode() & 0x3FF)) / 1000f;
+                if (onScreen) {
+                    float alpha = fadeFar;
+                    if (b("fadeCenter")) {
+                        double d = Math.hypot(sx - w / 2.0, sy - h / 2.0);
+                        if (d < 40) alpha *= (float) Math.max(0.3, d / 40);
+                    }
+                    float bob = (float) Math.sin(phase * 2.2) * 1.2f;
+                    gfx.push();
+                    gfx.translate((float) sx, (float) sy + bob);
+                    gfx.scale(scale);
+                    gfx.alpha = alpha;
+                    float pulse = (phase * 0.7f) % 1f;
+                    gfx.circle(0, 0, 4 + pulse * 7, ThemeManager.withAlpha(col, (int) (0x90 * (1 - pulse))));
+                    if (wp == selected) gfx.circle(0, 0, 6.5f, ThemeManager.withAlpha(col, 0x60));
+                    gfx.circle(0, 0, 4f, 0xC0000000);
+                    gfx.circle(0, 0, 3f, col);
+                    gfx.circle(0, 0, 1.2f, 0xFFFFFFFF);
+                    label(gfx, wp, dist, col);
+                    gfx.alpha = 1f;
+                    gfx.pop();
+                } else if (b("edgeArrows")) {
+                    // direction on screen of the waypoint (camera-space right/up), pinned to an inset ellipse
+                    double ang = Math.atan2(-y, x);
+                    float ex = (float) (w / 2.0 + Math.cos(ang) * (w / 2.0 - 22)), ey = (float) (h / 2.0 + Math.sin(ang) * (h / 2.0 - 22));
+                    float push = (float) Math.sin(phase * 4) * 1.5f;
+                    gfx.push();
+                    gfx.translate(ex, ey);
+                    gfx.scale(scale);
+                    gfx.alpha = fadeFar;
+                    gfx.circle(0, 0, 8, 0xB0101114);
+                    gfx.push();
+                    gfx.rotate((float) ang);
+                    gfx.translate(push, 0);
+                    gfx.icon("nav", -5, -5, 10, col);
+                    gfx.pop();
+                    String d = Fmt.distance(dist) + "m";
+                    float tw = gfx.width(d, 6f, dev.lock.client.render.LockFont.Weight.MEDIUM);
+                    gfx.textMid(d, -tw / 2f, 14, 6f, 0xE0FFFFFF, dev.lock.client.render.LockFont.Weight.MEDIUM);
+                    gfx.alpha = 1f;
+                    gfx.pop();
                 }
-                gfx.alpha = 1f;
-                gfx.pop();
             }
+        }
+
+        private void label(Gfx gfx, Waypoint wp, double dist, int col) {
+            boolean name = b("showName"), distance = b("showDistance");
+            if (!name && !distance) return;
+            var R = dev.lock.client.render.LockFont.Weight.MEDIUM;
+            String n = name ? wp.name : "", d = distance ? Fmt.distance(dist) + "m" : "";
+            float nw = gfx.width(n, 7f, dev.lock.client.render.LockFont.Weight.SEMIBOLD), dw = gfx.width(d, 6.5f, R);
+            float gap = name && distance ? 5 : 0, tw = nw + gap + dw + 12;
+            int x0 = Math.round(-tw / 2), y0 = -22;
+            gfx.rrect(x0, y0, Math.round(tw), 13, 6, 0xC8101114);
+            gfx.fill(x0 + 6, y0 + 12, x0 + Math.round(tw) - 6, y0 + 13, ThemeManager.withAlpha(col, 0xC0));
+            float tx = x0 + 6;
+            if (name) tx = gfx.textMid(n, tx, y0 + 6.5f, 7f, 0xFFFFFFFF, dev.lock.client.render.LockFont.Weight.SEMIBOLD) + gap;
+            if (distance) gfx.textMid(d, tx, y0 + 6.5f, 6.5f, 0xB0FFFFFF, R);
         }
     }
 

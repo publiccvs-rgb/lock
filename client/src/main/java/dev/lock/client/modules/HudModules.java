@@ -508,12 +508,15 @@ public final class HudModules {
         out = out.replace("{fps}", Integer.toString(mc.getFps()));
         int ping = GameInfo.ping();
         out = out.replace("{ping}", ping < 0 ? "--" : Integer.toString(ping));
+        boolean privateInfo = lock.visibility.visible("sensitive");
         if (p != null) {
-            out = out.replace("{x}", Integer.toString(p.getBlockX())).replace("{y}", Integer.toString(p.getBlockY())).replace("{z}", Integer.toString(p.getBlockZ()));
+            out = out.replace("{x}", privateInfo ? Integer.toString(p.getBlockX()) : "\u2022\u2022\u2022")
+                    .replace("{y}", privateInfo ? Integer.toString(p.getBlockY()) : "\u2022\u2022\u2022")
+                    .replace("{z}", privateInfo ? Integer.toString(p.getBlockZ()) : "\u2022\u2022\u2022");
         }
         if (out.contains("{biome}")) out = out.replace("{biome}", GameInfo.biome());
         out = out.replace("{dimension}", GameInfo.dimensionName()).replace("{time}", GameInfo.clock(true)).replace("{day}", Long.toString(GameInfo.day()));
-        out = out.replace("{server}", GameInfo.server(false)).replace("{profile}", lock.config.profile().name()).replace("{mode}", lock.visibility.mode());
+        out = out.replace("{server}", privateInfo ? GameInfo.server(false) : "hidden").replace("{profile}", lock.config.profile().name()).replace("{mode}", lock.visibility.mode());
         out = out.replace("{clock}", new SimpleDateFormat("HH:mm").format(new Date()));
         return out;
     }

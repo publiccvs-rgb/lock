@@ -337,7 +337,15 @@ public final class LockScreen extends Screen {
     private void drawHeader(Gfx g, Win w) {
         g.rrect(w.x, w.y, w.w, HEADER, RADIUS, HEADER_BG);
         if (!w.collapsed) g.fill(w.x, w.y + HEADER - RADIUS, w.x + w.w, w.y + HEADER, HEADER_BG);
-        if (!w.collapsed) g.fill(w.x, w.y + HEADER - 1, w.x + w.w, w.y + HEADER, LINE);
+        if (!w.collapsed) {
+            g.fill(w.x, w.y + HEADER - 1, w.x + w.w, w.y + HEADER, LINE);
+            // accent underline that draws in from the centre when the window opens
+            Long since = winOpened.get(w.id);
+            float u = since == null || !animated() ? 1f : Math.min(1f, (System.currentTimeMillis() - since) / 320f);
+            u = 1f - (1f - u) * (1f - u) * (1f - u);
+            int uw = Math.round((w.w - 24) * u * (w.id.equals("main") ? 0.35f : 0.25f));
+            g.fill(w.x + w.w / 2 - uw / 2, w.y + HEADER - 1, w.x + w.w / 2 + uw / 2, w.y + HEADER, ThemeManager.withAlpha(accent(), 0xC0));
+        }
         float cy = w.y + HEADER / 2f;
         if (w.id.equals("main")) {
             float x = ui.text("lock", w.x + 9, cy, 10.5f, text(), Ui.SB);
@@ -477,7 +485,22 @@ public final class LockScreen extends Screen {
         boolean on = m.def.toggleable() && m.enabled();
         boolean hov = ui.hover(x, y, rw, ROW);
         float t = ui.ease("row" + m.def.id, on ? 1 : 0);
-        if (t > 0.01f) g.rrect(x, y + 1, rw, ROW - 1, 3, ThemeManager.withAlpha(accent(), (int) (0xFF * t)));
+        // enable/disable: the accent sweeps in from the left (eased), then settles as a solid fill
+        if (t > 0.01f) {
+            float sweep = 1f - (1f - t) * (1f - t);
+            g.rrect(x, y + 1, Math.max(6, Math.round(rw * sweep)), ROW - 1, 3, ThemeManager.withAlpha(accent(), (int) (0xFF * Math.min(1f, t * 1.4f))));
+        }
+        Ripple rp = ripples.get(m.def.id);
+        if (rp != null) {
+            float age = (System.currentTimeMillis() - rp.start) / 380f;
+            if (age >= 1f) ripples.remove(m.def.id);
+            else {
+                ui.clip(x, y + 1, x + rw, y + ROW);
+                float e = 1f - (1f - age) * (1f - age);
+                g.circle(rp.x, y + ROW / 2f, 6 + rw * 1.1f * e, ThemeManager.withAlpha(0xFFFFFF, (int) (0x38 * (1f - age))));
+                ui.unclip();
+            }
+        }
         float hv = ui.ease("hov:" + m.def.id, hov ? 1 : 0);
         if (hv > 0.01f) g.rrect(x, y + 1, rw, ROW - 1, 3, ThemeManager.mulAlpha(ROW_HOVER, hv));
         int tc = ThemeManager.blend(m.def.toggleable() ? text() : DIM, lock.theme.onAccent(), t);
@@ -498,7 +521,12 @@ public final class LockScreen extends Screen {
 
     private void toggleExpand(String id) { if (!expanded.remove(id)) expanded.add(id); }
 
+    private record Ripple(int x, long start) {}
+
+    private final Map<String, Ripple> ripples = new HashMap<>();
+
     private void rowClick(ClientModule m, int button) {
+        if (button == 0 && m.def.toggleable()) ripples.put(m.def.id, new Ripple(ui.mx, System.currentTimeMillis()));
         if (button == 2) {
             var fav = lock.config.config().favorites;
             if (!fav.remove(m.def.id)) fav.add(m.def.id);

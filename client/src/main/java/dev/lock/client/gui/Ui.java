@@ -70,8 +70,9 @@ public final class Ui {
     private int[] clip;
     public Drag drag;
     public Field focused;
-    private String tooltip;
+    private String tooltip, lastTip;
     private int tipX, tipY;
+    private long tipSince;
     private final Map<Object, Float> anim = new HashMap<>();
     private long lastFrame = System.nanoTime();
     private float dt;
@@ -96,6 +97,7 @@ public final class Ui {
         regions.clear();
         regions.addAll(pending);
         if (tooltip != null && lock.config.state("click_gui").bool("tooltips")) drawTooltip();
+        else lastTip = null;
     }
 
     /** Eases a value toward {@code target}; used for restrained hover/toggle transitions. */
@@ -313,6 +315,16 @@ public final class Ui {
     }
 
     private void drawTooltip() {
+        long now = System.currentTimeMillis();
+        if (!tooltip.equals(lastTip)) { lastTip = tooltip; tipSince = now; }
+        float a = Math.min(1f, Math.max(0f, (now - tipSince - 350) / 150f)); // appear after a short hover, then fade in
+        if (a <= 0) return;
+        float base = gfx.alpha;
+        gfx.alpha = base * a;
+        try { drawTooltipBox(); } finally { gfx.alpha = base; }
+    }
+
+    private void drawTooltipBox() {
         List<String> lines = wrap(tooltip, 170, FS_SMALL);
         float w = 0;
         for (String l : lines) w = Math.max(w, width(l, FS_SMALL, R));

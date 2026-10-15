@@ -78,6 +78,7 @@ public final class IconSet {
             }
             p.circle(12, 12, 6.2);
         });
+        def("nav", p -> p.fillPoly(21, 12, 5, 4.5, 8.5, 12, 5, 19.5));
         def("chevron_right", p -> p.poly(9, 5, 16, 12, 9, 19));
         def("chevron_down", p -> p.poly(5, 9, 12, 16, 19, 9));
         def("chevron_up", p -> p.poly(5, 15, 12, 8, 19, 15));

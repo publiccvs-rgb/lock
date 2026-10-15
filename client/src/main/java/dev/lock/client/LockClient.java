@@ -185,7 +185,11 @@ public final class LockClient implements ClientBridge {
     @Override
     public void mouseButton(Object info, int action) {
         int button = ((MouseButtonInfo) info).button();
-        if (action == 1 && mc.screen == null) stats.click(button);
+        if (action == 1 && mc.screen == null) {
+            stats.click(button);
+            if (button == 0 && mc.hitResult != null && mc.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.ENTITY)
+                modules.get("crosshair", VisualModules.Crosshair.class).hit();
+        }
         if (action == 1 || action == 0) keys.onInput(Keys.MOUSE_BASE + button, action == 1);
     }
 

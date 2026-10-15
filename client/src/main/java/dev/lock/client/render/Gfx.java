@@ -111,6 +111,7 @@ public final class Gfx {
     public void pop() { g.pose().popMatrix(); }
     public void translate(float x, float y) { g.pose().translate(x, y); }
     public void scale(float s) { g.pose().scale(s, s); }
+    public void rotate(float radians) { g.pose().rotate(radians); }
     public void scissor(int x1, int y1, int x2, int y2) { g.enableScissor(x1, y1, x2, y2); }
     public void unscissor() { g.disableScissor(); }
 

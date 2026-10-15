@@ -55,7 +55,7 @@ public final class Catalog {
                 .bool("showName", "Show name", true).bool("showDistance", "Show distance", true)
                 .num("maxDistance", "Max distance", 5000, 8, 100000, 8).num("scale", "Marker scale", 1.0, 0.5, 2.5, 0.05)
                 .bool("fadeCenter", "Fade near crosshair", true, "Fades markers close to the screen centre.")
-                .bool("edgeArrows", "Off-screen arrows", false, "Clamp markers behind you to the screen edge.")
+                .bool("edgeArrows", "Off-screen arrows", true, "Animated arrows at the screen edge point to waypoints outside your view.")
                 .build());
         l.add(ModuleDef.builder("notifications", "Visual Notifications", VISUALS).group("notifications").enabled()
                 .desc("Short toasts for module toggles, profile/mode switches, waypoints and warnings.").tags("toast", "alert")

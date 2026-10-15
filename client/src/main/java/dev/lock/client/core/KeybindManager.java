@@ -24,6 +24,7 @@ public final class KeybindManager {
         }
     }
 
+    private static final int GLFW_F3 = 292;
     private final LockClient lock;
     private final Minecraft mc = Minecraft.getInstance();
     private Map<Integer, List<Bind>> byKey = new HashMap<>();
@@ -55,6 +56,8 @@ public final class KeybindManager {
     public void onInput(int key, boolean pressed) {
         rebuildIfNeeded();
         if (pressed && !allowedNow()) return;
+        // F3+key are vanilla debug combos: never also trigger Lock binds
+        if (pressed && key != GLFW_F3 && InputConstants.isKeyDown(mc.getWindow(), GLFW_F3)) return;
         List<Bind> binds = byKey.get(key);
         if (binds == null) return;
         for (Bind b : List.copyOf(binds)) {

@@ -74,6 +74,11 @@ public final class LockFont {
 
     private static FontRenderContext frc() { return new FontRenderContext(null, true, true); }
 
+    /** System font used for symbols Poppins does not contain (arrows, stars, ...). */
+    private static Font fallback(Weight w, float px) {
+        return new Font(Font.SANS_SERIF, w == Weight.REGULAR ? Font.PLAIN : Font.BOLD, 12).deriveFont(px);
+    }
+
     private static float[] advances(Weight w) {
         float[] a = ADV[w.ordinal()];
         if (a != null) return a;
@@ -82,8 +87,12 @@ public final class LockFont {
             a = new float[MAX_CHAR];
             java.util.Arrays.fill(a, Float.NaN);
             Font f = base(w).deriveFont((float) REF);
+            Font fb = fallback(w, REF);
             FontRenderContext frc = frc();
-            for (char c : CHARS.toCharArray()) if (f.canDisplay(c)) a[c] = (float) f.getStringBounds(String.valueOf(c), frc).getWidth();
+            for (char c : CHARS.toCharArray()) {
+                Font use = f.canDisplay(c) ? f : fb.canDisplay(c) ? fb : null;
+                if (use != null) a[c] = (float) use.getStringBounds(String.valueOf(c), frc).getWidth();
+            }
             if (w == Weight.REGULAR) {
                 var lm = f.getLineMetrics("H", frc);
                 ascentRatio = lm.getAscent() / REF;
@@ -98,13 +107,15 @@ public final class LockFont {
     private static Atlas rasterise(Weight w, int px) {
         Atlas a = new Atlas();
         Font f = base(w).deriveFont((float) px);
+        Font fb = fallback(w, px);
         FontRenderContext frc = frc();
         var lm = f.getLineMetrics("Hg", frc);
         int lineH = (int) Math.ceil(lm.getAscent() + lm.getDescent()) + PAD * 2;
         int texW = 1024, x = 0, y = 0;
         for (char c : CHARS.toCharArray()) {
-            if (!f.canDisplay(c)) continue;
-            int cw = (int) Math.ceil(f.getStringBounds(String.valueOf(c), frc).getWidth()) + PAD * 2 + 2;
+            Font use = f.canDisplay(c) ? f : fb.canDisplay(c) ? fb : null;
+            if (use == null) continue;
+            int cw = (int) Math.ceil(use.getStringBounds(String.valueOf(c), frc).getWidth()) + PAD * 2 + 2;
             if (x + cw > texW) { x = 0; y += lineH; }
             a.gx[c] = (short) x;
             a.gy[c] = (short) y;
@@ -119,8 +130,11 @@ public final class LockFont {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setFont(f);
         g.setColor(Color.WHITE);
-        for (char c : CHARS.toCharArray())
-            if (a.gw[c] > 0) g.drawString(String.valueOf(c), a.gx[c] + PAD, a.gy[c] + PAD + lm.getAscent());
+        for (char c : CHARS.toCharArray()) {
+            if (a.gw[c] == 0) continue;
+            g.setFont(f.canDisplay(c) ? f : fb);
+            g.drawString(String.valueOf(c), a.gx[c] + PAD, a.gy[c] + PAD + lm.getAscent());
+        }
         g.dispose();
         a.texW = texW;
         a.texH = texH;
