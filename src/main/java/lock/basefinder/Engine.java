@@ -266,6 +266,7 @@ public final class Engine {
         if (haveLight && !in.lightReliable) v.reasons.add(new Verdict.Reason("light data looks unreliable - light cross-check skipped", 0, Family.TRACE, true));
 
         v.logit = logit;
+        v.baseLogit = logit;
         v.p = 1.0 / (1.0 + Math.exp(-logit));
         v.points = (int) Math.round(total);
         v.buildPct = total <= 0 ? 0 : Math.min(1.0, builtLlr / total);

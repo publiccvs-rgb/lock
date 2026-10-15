@@ -26,7 +26,7 @@ public final class Verdict {
     }
 
     public final int cx, cz;
-    public double p, logit;
+    public double p, logit, baseLogit;
     public int points;
     public Confidence confidence = Confidence.LOW;
     public Type type = Type.UNKNOWN;
@@ -44,5 +44,21 @@ public final class Verdict {
     public Verdict(int cx, int cz) { this.cx = cx; this.cz = cz; }
 
     public void note(int y) { if (y < evidenceMinY) evidenceMinY = y; if (y > evidenceMaxY) evidenceMaxY = y; }
+    /** Applies neighbour support on top of the chunk's own evidence. */
+    public void applySupport(double support, int flaggedNeighbours) {
+        logit = baseLogit + support;
+        p = 1.0 / (1.0 + Math.exp(-logit));
+        neighborFlagged = flaggedNeighbours;
+        reasons.removeIf(r -> r.family() == Family.SUPPORT);
+        if (support > 0.05) {
+            reasons.add(new Reason(plural(flaggedNeighbours) + " next door " + (flaggedNeighbours == 1 ? "is" : "are") + " flagged too", support, Family.SUPPORT, false));
+        }
+        points = (int) Math.round(logit - Engine.PRIOR_LOGIT);
+        if (p >= 0.75 && confidence == Confidence.MEDIUM) confidence = Confidence.HIGH;
+        else if (p >= 0.40 && confidence == Confidence.LOW) confidence = Confidence.MEDIUM;
+    }
+
+    private static String plural(int n) { return n + " chunk" + (n == 1 ? "" : "s"); }
+
     public boolean hasEvidenceRange() { return evidenceMinY <= evidenceMaxY; }
 }

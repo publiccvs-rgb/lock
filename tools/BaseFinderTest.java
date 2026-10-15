@@ -6,9 +6,13 @@ import java.util.*;
 public final class BaseFinderTest {
     static final int MIN_Y = -64, SECTIONS = 24;
 
-    static ChunkSnapshot natural(long seed) {
+    static ChunkSnapshot natural(long seed) { return natural(seed, (int) seed); }
+
+    static boolean caves = true;
+
+    static ChunkSnapshot natural(long seed, int chunkX) {
         Random r = new Random(seed);
-        ChunkSnapshot s = new ChunkSnapshot((int) seed, 0, MIN_Y, SECTIONS);
+        ChunkSnapshot s = new ChunkSnapshot(chunkX, 0, MIN_Y, SECTIONS);
         int[] h = new int[256];
         double a = r.nextDouble() * 6, b = r.nextDouble() * 6;
         for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) h[z << 4 | x] = 64 + (int) (Math.sin(x / 5.0 + a) * 3 + Math.cos(z / 4.0 + b) * 3);
@@ -21,7 +25,7 @@ public final class BaseFinderTest {
             }
         }
         // natural caves: wandering worms and a few blobs
-        int worms = r.nextInt(4);
+        int worms = caves ? r.nextInt(4) : 0;
         for (int i = 0; i < worms; i++) {
             double x = r.nextInt(16), y = -40 + r.nextInt(80), z = r.nextInt(16);
             double yaw = r.nextDouble() * 6.28, pitch = (r.nextDouble() - .5) * .6;
@@ -32,7 +36,7 @@ public final class BaseFinderTest {
                 carve(s, x, y, z, rad, h);
             }
         }
-        for (int i = 0; i < r.nextInt(3); i++) carve(s, r.nextInt(16), -50 + r.nextInt(100), r.nextInt(16), 3 + r.nextDouble() * 3, h);
+        for (int i = 0; i < (caves ? r.nextInt(3) : 0); i++) carve(s, r.nextInt(16), -50 + r.nextInt(100), r.nextInt(16), 3 + r.nextDouble() * 3, h);
         s.serverSurface = new short[256];
         for (int i = 0; i < 256; i++) s.serverSurface[i] = (short) (h[i] - MIN_Y);
         light(s);
@@ -278,6 +282,36 @@ public final class BaseFinderTest {
             if (v.p >= 0.30) { if (fpx++ == 0) { System.out.printf("    first FP p=%.2f%n", v.p); v.reasons.forEach(r -> System.out.printf("      %+.1f %s%n", r.points(), r.text())); } }
         }
         check(fpx == 0, "fake ore field alone is not a base (" + fpx + "/200)");
+
+        System.out.println("== neighbour support ==");
+        {
+            Map<Long, Verdict> map = new HashMap<>();
+            Model m2 = new Model();
+            caves = false;
+            for (int i = 0; i < 4; i++) {            // a tunnel running through four adjacent chunks
+                ChunkSnapshot s2 = natural(31000 + i, i);
+                for (int x = 0; x < 16; x++) { s2.set(x, -20, 6, Blocks.AIR); s2.set(x, -19, 6, Blocks.AIR); }
+                finish(s2);
+                map.put(Sites.key(i, 0), Engine.analyze(s2, m2, new Engine.Options()));
+            }
+            ChunkSnapshot lone = natural(31100, 40);
+            for (int x = 0; x < 16; x++) { lone.set(x, -20, 6, Blocks.AIR); lone.set(x, -19, 6, Blocks.AIR); }
+            finish(lone);
+            Verdict vl = Engine.analyze(lone, m2, new Engine.Options());
+            double aloneP = vl.p;
+            map.put(Sites.key(40, 0), vl);
+            double before1 = map.get(Sites.key(1, 0)).p;
+            ChunkSnapshot empty = natural(31200, 4);      // an empty natural chunk next to the tunnel must not be promoted
+            finish(empty);
+            map.put(Sites.key(4, 0), Engine.analyze(empty, m2, new Engine.Options()));
+            List<Sites.Site> sites = Sites.link(map);
+            double mid = map.get(Sites.key(1, 0)).p;
+            check(mid > before1 + 0.05, String.format("chained tunnel chunk rises %.0f%% -> %.0f%% with neighbours", before1 * 100, mid * 100));
+            check(Math.abs(map.get(Sites.key(40, 0)).p - aloneP) < 1e-9, "an isolated chunk gets no support");
+            check(map.get(Sites.key(4, 0)).p < 0.05, String.format("empty neighbour not promoted (%.1f%%)", map.get(Sites.key(4, 0)).p * 100));
+            caves = true;
+            check(!sites.isEmpty() && sites.get(0).chunks() >= 2, "tunnel chunks grouped into one site (" + (sites.isEmpty() ? 0 : sites.get(0).chunks()) + " chunks)");
+        }
 
         System.out.println("== sample verdict ==");
         ChunkSnapshot s = natural(777); plantUndergroundBase(s, true); plantTunnel(s); finish(s); antiXray(s, 1, true);
