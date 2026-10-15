@@ -22,3 +22,14 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 21
     options.encoding = 'UTF-8'
 }
+
+loom {
+    runs {
+        demo {
+            client()
+            name = 'Demo'
+            property 'lock.demo', 'true'
+            programArgs '--width', '1920', '--height', '1080'
+        }
+    }
+}

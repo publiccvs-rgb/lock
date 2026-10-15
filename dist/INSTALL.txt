@@ -1,0 +1,11 @@
+lock. - Fabric 1.21.4
+
+1. Install Java 21 (https://adoptium.net) if you don't have it.
+2. Run fabric-installer-1.0.1.jar (double click, or: java -jar fabric-installer-1.0.1.jar)
+   -> Client tab, Minecraft 1.21.4, Loader 0.16.14 (or newer), Install.
+3. Copy BOTH jars from the mods/ folder into your .minecraft/mods folder
+   (mac: ~/Library/Application Support/minecraft/mods).
+4. Launch the "fabric-loader-1.21.4" profile.
+5. In game press Right Shift for the menu. Left click toggles, right click opens settings.
+
+Config: .minecraft/config/lock.json

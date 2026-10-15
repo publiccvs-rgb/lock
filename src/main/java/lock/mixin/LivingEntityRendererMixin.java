@@ -26,7 +26,7 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
     private void lock$extract(T entity, S state, float pt, CallbackInfo ci) {
         var c = LockClient.modules.charms;
         int tint = 0;
-        if (c.enabled() && entity instanceof Player && Esp.targets(entity)) {
+        if (c.enabled() && (!c.playersOnly.get() || entity instanceof Player) && Esp.targets(entity)) {
             tint = Colors.argb(Esp.color(entity, c.color), c.opacity.f());
         }
         ((CharmState) state).lock$setCharm(tint);

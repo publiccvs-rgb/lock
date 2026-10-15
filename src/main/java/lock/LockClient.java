@@ -28,6 +28,7 @@ public class LockClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             modules.tick();
+            if (lock.demo.Demo.ON) lock.demo.Demo.tick(mc);
             while (openGui.consumeClick()) mc.setScreen(new LockScreen());
         });
         WorldRenderEvents.LAST.register(WorldEsp::render);
