@@ -24,11 +24,28 @@ public abstract class HudModule extends ClientModule {
     /** Draws content at (0,0) in unscaled coordinates. {@code w,h} is the content box. */
     public abstract void draw(Gfx gfx, int w, int h);
 
+    /** Elements that draw their own cards (e.g. toasts) skip the shared background. */
+    public boolean ownBackground() { return false; }
+
     /** True when there is nothing worth drawing (the element is skipped entirely, except in the editor). */
     public boolean empty() { return false; }
 
     /** Content shown in the HUD editor when the live content is empty. */
     public void preview() {}
+
+    private static final java.util.Map<String, String> ICONS = java.util.Map.ofEntries(
+            java.util.Map.entry("fps", "gauge"), java.util.Map.entry("cps", "mouse"), java.util.Map.entry("coordinates", "pin"),
+            java.util.Map.entry("ping", "signal"), java.util.Map.entry("server_status", "server"), java.util.Map.entry("durability", "hammer"),
+            java.util.Map.entry("potion_effects", "flask"), java.util.Map.entry("status", "heart"), java.util.Map.entry("timers", "timer"),
+            java.util.Map.entry("custom_text", "text"), java.util.Map.entry("info_panel", "info"), java.util.Map.entry("notification_feed", "bell"),
+            java.util.Map.entry("movement_indicators", "move"), java.util.Map.entry("sprint_status", "zap"), java.util.Map.entry("health_info", "heart"),
+            java.util.Map.entry("gameplay_stats", "chart"), java.util.Map.entry("session_stats", "clock"), java.util.Map.entry("waypoint_distance", "pin"),
+            java.util.Map.entry("dimension", "layers"), java.util.Map.entry("biome", "mountain"), java.util.Map.entry("time_info", "clock"),
+            java.util.Map.entry("environment", "sun"), java.util.Map.entry("world_info", "globe"), java.util.Map.entry("performance", "cpu"),
+            java.util.Map.entry("memory", "cpu"), java.util.Map.entry("diag_overlay", "bug"));
+
+    /** Icon shown by text elements (null for none or when disabled in settings). */
+    public String icon() { return b(ModuleDef.H_ICON) ? ICONS.get(def.id) : null; }
 
     public Anchor anchor() {
         try { return Anchor.valueOf(s(ModuleDef.H_ANCHOR)); } catch (IllegalArgumentException e) { return Anchor.TOP_LEFT; }

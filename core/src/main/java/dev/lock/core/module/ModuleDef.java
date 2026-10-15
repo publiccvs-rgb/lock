@@ -144,10 +144,12 @@ public final class ModuleDef {
             num(H_OPACITY, "Opacity", 1.0, 0.1, 1.0, 0.05, "Opacity of the whole element.");
             bool(H_SHADOW, "Text shadow", true);
             bool(H_BG, "Background", background);
-            color(H_BG_COLOR, "Background colour", 0x80101114);
+            color(H_BG_COLOR, "Background colour", 0xB8141517);
+            num(H_RADIUS, "Corner radius", 4, 0, 10, 1, "Roundness of the background.");
+            bool(H_ICON, "Icon", true, "Show the element's icon.");
             bool(H_BORDER, "Border", false);
             color(H_BORDER_COLOR, "Border colour", 0x60FFFFFF);
-            num(H_PADDING, "Spacing", 3, 0, 12, 1, "Inner padding and line spacing.");
+            num(H_PADDING, "Spacing", 4, 0, 12, 1, "Inner padding and line spacing.");
             bool(H_COMPACT, "Compact", false, "Shorter labels and tighter layout.");
             group = "Visibility";
             bool(H_LOCAL, "Show locally", true, "Draw this element on your screen.");
@@ -177,5 +179,5 @@ public final class ModuleDef {
             H_ALIGN = "hud.align", H_TEXT_SCALE = "hud.textScale", H_COLOR = "hud.color", H_ACCENT = "hud.accent",
             H_OPACITY = "hud.opacity", H_SHADOW = "hud.shadow", H_BG = "hud.bg", H_BG_COLOR = "hud.bgColor",
             H_BORDER = "hud.border", H_BORDER_COLOR = "hud.borderColor", H_PADDING = "hud.padding",
-            H_COMPACT = "hud.compact", H_LOCAL = "hud.local";
+            H_COMPACT = "hud.compact", H_LOCAL = "hud.local", H_RADIUS = "hud.radius", H_ICON = "hud.icon";
 }

@@ -227,6 +227,8 @@ public final class LockClient implements ClientBridge {
             case "switchProfile" -> switchProfile(JsonUtil.str(req, "name", ""));
             case "setMode" -> visibility.setMode(JsonUtil.str(req, "mode", ""));
             case "openGui" -> mc.setScreen(new dev.lock.client.gui.LockScreen(null));
+            case "openHudEditor" -> mc.setScreen(new HudEditorScreen(null));
+            case "closeGui" -> mc.setScreen(null);
             case "report" -> {
                 try {
                     r.put("path", diagnostics.writeReport().toString());

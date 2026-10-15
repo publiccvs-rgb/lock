@@ -2,6 +2,7 @@ package dev.lock.client.module;
 
 import dev.lock.client.LockClient;
 import dev.lock.client.render.Gfx;
+import dev.lock.client.render.LockFont;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,43 +51,56 @@ public abstract class TextHud extends HudModule {
         return l.label() + " " + l.value();
     }
 
+    private static final float BASE = 8f;
+
+    private float lineW(Gfx gfx, Line l, float size) {
+        float w = 0;
+        if (l.label() != null && !l.label().isEmpty()) w += gfx.width(l.label() + " ", size, LockFont.Weight.REGULAR);
+        return w + gfx.width(l.value(), size, LockFont.Weight.MEDIUM);
+    }
+
+    private int lineH() { return Math.round(10 * textScale()); }
+
+    private int iconSpace() { return icon() != null ? Math.round(12 * textScale()) : 0; }
+
     @Override
     public int[] size(Gfx gfx) {
         List<Line> lines = content();
-        float ts = textScale();
-        int w = 0;
-        for (Line l : lines) w = Math.max(w, gfx.width(text(l)));
-        int lineH = Math.round(9 * ts);
-        int gap = Math.max(1, padding() / 2);
-        int h = lines.isEmpty() ? lineH : lines.size() * lineH + (lines.size() - 1) * gap;
-        return new int[]{Math.max(1, Math.round(w * ts)), h};
+        float size = BASE * textScale();
+        float w = 0;
+        for (Line l : lines) w = Math.max(w, lineW(gfx, l, size));
+        int gap = Math.max(0, padding() / 2 - 1);
+        int n = Math.max(1, lines.size());
+        return new int[]{(int) Math.ceil(w) + iconSpace(), n * lineH() + (n - 1) * gap};
     }
 
     @Override
     public void draw(Gfx gfx, int w, int h) {
         List<Line> lines = content();
-        float ts = textScale();
-        int lineH = Math.round(9 * ts);
-        int gap = Math.max(1, padding() / 2);
+        float size = BASE * textScale();
+        int lh = lineH(), gap = Math.max(0, padding() / 2 - 1);
+        String icon = icon();
+        int is = iconSpace();
+        if (icon != null) {
+            float isz = 8 * textScale();
+            float iy = lines.size() > 1 ? (lh - isz) / 2f : (h - isz) / 2f;
+            gfx.icon(icon, 0, iy, isz, lock.theme.accent());
+        }
         String align = align();
-        boolean shadow = shadow();
-        int y = 0;
+        float y = 0;
         for (Line l : lines) {
-            String full = text(l);
-            int lw = Math.round(gfx.width(full) * ts);
-            int x = switch (align) {
-                case "Center" -> (w - lw) / 2;
-                case "Right" -> w - lw;
-                default -> 0;
+            float lw = lineW(gfx, l, size);
+            float avail = w - is;
+            float x = is + switch (align) {
+                case "Center" -> (avail - lw) / 2f;
+                case "Right" -> avail - lw;
+                default -> 0f;
             };
-            gfx.push();
-            gfx.translate(x, y);
-            if (ts != 1f) gfx.scale(ts);
-            int cx = 0;
-            if (l.label() != null && !l.label().isEmpty()) cx = gfx.text(l.label() + " ", 0, 0, labelColor(), shadow);
-            gfx.text(l.value(), cx, 0, l.color() != 0 ? l.color() : textColor(), shadow);
-            gfx.pop();
-            y += lineH + gap;
+            float cy = y + lh / 2f;
+            if (l.label() != null && !l.label().isEmpty())
+                x = gfx.textMid(l.label() + " ", x, cy, size, labelColor(), LockFont.Weight.REGULAR);
+            gfx.textMid(l.value(), x, cy, size, l.color() != 0 ? l.color() : textColor(), LockFont.Weight.MEDIUM);
+            y += lh + gap;
         }
     }
 }

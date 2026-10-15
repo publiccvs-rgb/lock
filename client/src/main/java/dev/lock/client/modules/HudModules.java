@@ -9,6 +9,7 @@ import dev.lock.client.module.HudModule;
 import dev.lock.client.module.TextHud;
 import dev.lock.client.render.Fmt;
 import dev.lock.client.render.Gfx;
+import dev.lock.client.render.LockFont;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -76,44 +77,62 @@ public final class HudModules {
                 y += k + gap;
             }
             if (b("space")) {
-                boolean down = o.keyJump.isDown();
-                gfx.round(0, y, w, y + k / 2, down ? color("pressed") : color("released"));
-                int cy = y + k / 4;
-                gfx.fill(w / 2 - 8, cy, w / 2 + 8, cy + 1, down ? color("pressedText") : textColor());
+                float t = ease("jump", o.keyJump.isDown());
+                gfx.rrect(0, y, w, k / 2, i(dev.lock.core.module.ModuleDef.H_RADIUS), ThemeManager.blend(color("released"), color("pressed"), t));
+                int c = ThemeManager.blend(textColor(), color("pressedText"), t);
+                gfx.rrect(w / 2 - 9, y + k / 4 - 1, 18, 2, 1, c);
             }
         }
 
         private void key(Gfx gfx, KeyMapping km, int x, int y, int w, int h, String sub) {
-            boolean down = km.isDown();
-            gfx.round(x, y, x + w, y + h, down ? color("pressed") : color("released"));
-            String label = km.getTranslatedKeyMessage().getString();
-            if (label.length() > 3) label = label.substring(0, 3);
-            int c = down ? color("pressedText") : textColor();
-            if (sub == null) gfx.centered(label, x + w / 2, y + (h - 8) / 2, c, !down && shadow());
-            else {
-                gfx.textScaled(label, x + w / 2f - gfx.width(label) / 2f, y + 2, 1f, c, !down && shadow());
-                float sc = 0.6f;
-                gfx.textScaled(sub, x + w / 2f - gfx.width(sub) * sc / 2f, y + h - 7, sc, c, false);
+            float t = ease(km.getName(), km.isDown());
+            int r = i(dev.lock.core.module.ModuleDef.H_RADIUS);
+            gfx.rrect(x, y, w, h, r, ThemeManager.blend(color("released"), color("pressed"), t));
+            String label = km == mc.options.keyAttack ? "LMB" : km == mc.options.keyUse ? "RMB" : km.getTranslatedKeyMessage().getString();
+            if (label.length() > 4) label = label.substring(0, 4);
+            int c = ThemeManager.blend(textColor(), color("pressedText"), t);
+            float size = 8f;
+            if (sub == null) {
+                float lw = gfx.width(label, size, LockFont.Weight.MEDIUM);
+                gfx.textMid(label, x + (w - lw) / 2f, y + h / 2f, size, c, LockFont.Weight.MEDIUM);
+            } else {
+                float lw = gfx.width(label, size, LockFont.Weight.MEDIUM);
+                gfx.textMid(label, x + (w - lw) / 2f, y + h / 2f - 3, size, c, LockFont.Weight.MEDIUM);
+                float sw = gfx.width(sub, 5.5f, LockFont.Weight.REGULAR);
+                gfx.textMid(sub, x + (w - sw) / 2f, y + h / 2f + 5, 5.5f, ThemeManager.withAlpha(c, 0xB0), LockFont.Weight.REGULAR);
             }
+        }
+
+        private final java.util.Map<String, Float> anim = new java.util.HashMap<>();
+        private long last = System.nanoTime();
+
+        private float ease(String k, boolean down) {
+            long now = System.nanoTime();
+            float dt = Math.min(0.1f, (now - last) / 1e9f);
+            last = now;
+            float v = anim.getOrDefault(k, 0f);
+            v += ((down ? 1f : 0f) - v) * Math.min(1f, dt * 30f);
+            anim.put(k, v);
+            return v;
         }
     }
 
     public static final class MouseButtons extends HudModule {
         public MouseButtons(LockClient l) { super(l, "mouse_buttons"); }
 
-        @Override public int[] size(Gfx gfx) { return new int[]{b("middle") ? 62 : 40, 14}; }
+        @Override public int[] size(Gfx gfx) { return new int[]{b("middle") ? 62 : 41, 16}; }
 
         @Override public void draw(Gfx gfx, int w, int h) {
             boolean mid = b("middle");
-            int bw = mid ? 20 : 20;
-            btn(gfx, 0, bw - 1, "L", mc.mouseHandler.isLeftPressed());
-            if (mid) btn(gfx, 21, 20, "M", mc.mouseHandler.isMiddlePressed());
-            btn(gfx, mid ? 42 : 21, bw - 1, "R", mc.mouseHandler.isRightPressed());
+            btn(gfx, 0, 20, "LMB", mc.mouseHandler.isLeftPressed());
+            if (mid) btn(gfx, 21, 20, "MMB", mc.mouseHandler.isMiddlePressed());
+            btn(gfx, mid ? 42 : 21, 20, "RMB", mc.mouseHandler.isRightPressed());
         }
 
         private void btn(Gfx gfx, int x, int w, String l, boolean down) {
-            gfx.round(x, 0, x + w, 14, down ? color("pressed") : 0x80101114);
-            gfx.centered(l, x + w / 2, 3, down ? 0xFF101114 : textColor(), !down && shadow());
+            gfx.rrect(x, 0, w, 16, i(dev.lock.core.module.ModuleDef.H_RADIUS), down ? color("pressed") : 0xB0141517);
+            float lw = gfx.width(l, 6f, LockFont.Weight.MEDIUM);
+            gfx.textMid(l, x + (w - lw) / 2f, 8, 6f, down ? 0xFF111214 : textColor(), LockFont.Weight.MEDIUM);
         }
     }
 
@@ -412,21 +431,22 @@ public final class HudModules {
             List<String> e = entries(gfx);
             int w = 40;
             for (String s : e) w = Math.max(w, gfx.width(s) + 6);
-            return new int[]{w, Math.max(1, e.size()) * 11};
+            return new int[]{w + 4, Math.max(1, e.size()) * 13 - 1};
         }
 
         @Override public void draw(Gfx gfx, int w, int h) {
             List<String> e = entries(gfx);
-            if (e.isEmpty()) { if (editing) gfx.text(def.name, 0, 1, textColor(), shadow()); return; }
+            if (e.isEmpty()) { if (editing) gfx.textMid(def.name, 0, 6, 8f, textColor(), LockFont.Weight.MEDIUM); return; }
             boolean right = anchor().hx == 2 || "Right".equals(align());
             int y = 0;
             for (String s : e) {
                 int tw = gfx.width(s);
-                int x = right ? w - tw - 3 : 3;
-                gfx.fill(right ? w - tw - 6 : 0, y, right ? w : tw + 6, y + 11, 0x70101114);
-                if (b("bars")) gfx.fill(right ? w - 1 : 0, y, right ? w : 1, y + 11, lock.theme.accent());
-                gfx.text(s, x, y + 2, textColor(), shadow());
-                y += 11;
+                int bw = tw + 10;
+                int bx = right ? w - bw : 0;
+                gfx.rrect(bx, y, bw, 12, 3, 0xA0141517);
+                if (b("bars")) gfx.rrect(right ? w - 2 : 0, y + 2, 2, 8, 1, lock.theme.accent());
+                gfx.textMid(s, bx + 5, y + 6, 8f, textColor(), LockFont.Weight.MEDIUM);
+                y += 13;
             }
         }
     }
@@ -449,22 +469,22 @@ public final class HudModules {
 
         @Override public int[] size(Gfx gfx) {
             List<String> c = chips();
-            if (c.isEmpty()) return new int[]{gfx.width(def.name), 11};
+            if (c.isEmpty()) return new int[]{gfx.width(def.name), 12};
             int w = 0;
-            for (String s : c) w += gfx.width(s) + 10;
-            return new int[]{w - 4, 11};
+            for (String s : c) w += gfx.width(s) + 16;
+            return new int[]{w - 4, 12};
         }
 
         @Override public void draw(Gfx gfx, int w, int h) {
             List<String> c = chips();
-            if (c.isEmpty()) { gfx.text(def.name, 0, 2, textColor(), shadow()); return; }
+            if (c.isEmpty()) { gfx.textMid(def.name, 0, 6, 8f, textColor(), LockFont.Weight.MEDIUM); return; }
             int x = 0;
             for (String s : c) {
                 int tw = gfx.width(s);
-                gfx.round(x, 0, x + tw + 6, 11, 0x90101114);
-                gfx.fill(x, 10, x + tw + 6, 11, lock.theme.accent());
-                gfx.text(s, x + 3, 2, textColor(), shadow());
-                x += tw + 10;
+                gfx.rrect(x, 0, tw + 12, 12, 6, 0xB0141517);
+                gfx.circle(x + 6, 6, 2, lock.theme.accent());
+                gfx.textMid(s, x + 10, 6, 7f, textColor(), LockFont.Weight.MEDIUM);
+                x += tw + 16;
             }
         }
     }

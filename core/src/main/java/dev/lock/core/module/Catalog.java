@@ -66,7 +66,7 @@ public final class Catalog {
                 .build());
 
         // ---------------------------------------------------------------- HUD
-        l.add(hud("fps", "FPS Counter", "Frames per second.", TOP_LEFT, 4, 16).enabled()
+        l.add(hud("fps", "FPS Counter", "Frames per second.", TOP_LEFT, 4, 24).enabled()
                 .bool("label", "Show label", true).bool("colorize", "Colour by value", false).build());
         l.add(hud("cps", "CPS Counter", "Clicks per second for left and right mouse buttons.", TOP_LEFT, 4, 30)
                 .bool("label", "Show label", true).bool("right", "Show right button", true).build());
@@ -74,8 +74,8 @@ public final class Catalog {
                 .bg(false)
                 .section("Keys").bool("mouse", "Show mouse buttons", true).bool("space", "Show space bar", true).bool("cps", "CPS on mouse keys", true)
                 .num("keySize", "Key size", 20, 12, 32, 1)
-                .color("pressed", "Pressed colour", 0xC0FFFFFF).color("released", "Released colour", 0x80101114)
-                .color("pressedText", "Pressed text", 0xFF101114).build());
+                .color("pressed", "Pressed colour", 0xE6FFFFFF).color("released", "Released colour", 0xB0141517)
+                .color("pressedText", "Pressed text", 0xFF111214).build());
         l.add(hud("mouse_buttons", "Mouse Buttons", "Live state of the left, middle and right mouse buttons.", BOTTOM_LEFT, 4, 90)
                 .bool("middle", "Show middle button", true).color("pressed", "Pressed colour", 0xC0FFFFFF).build());
         l.add(hud("coordinates", "Coordinates", "Your position, block position and facing.", TOP_LEFT, 4, 44).group("sensitive")
@@ -211,14 +211,17 @@ public final class Catalog {
         // ---------------------------------------------------------------- Interface
         l.add(ModuleDef.builder("click_gui", "Click GUI", INTERFACE).system()
                 .desc("The in-game module manager.").tags("menu", "settings")
-                .key("openKey", "Open key", KEY_RIGHT_SHIFT, "").num("scale", "GUI scale", 1.0, 0.6, 1.6, 0.05)
+                .key("openKey", "Open key", KEY_RIGHT_SHIFT, "").num("scale", "GUI scale", 1.0, 0.6, 2.0, 0.05, "Size of the Click GUI, independent of Minecraft's GUI scale.")
                 .bool("tooltips", "Tooltips", true).bool("animations", "Animations", true).bool("pause", "Pause singleplayer", false).build());
         l.add(ModuleDef.builder("hud_editor", "HUD Editor", INTERFACE).system()
                 .desc("Drag, scale and align HUD elements.").tags("layout", "position")
                 .bool("snap", "Grid snapping", true).num("grid", "Grid size", 4, 2, 16, 1).bool("guides", "Alignment guides", true).build());
         l.add(ModuleDef.builder("hud_settings", "Visual Scale", INTERFACE).system()
                 .desc("Global scale and visibility rules for all Lock HUD elements.").tags("scale")
-                .num("scale", "Global HUD scale", 1.0, 0.5, 2.0, 0.05).bool("hideInDebug", "Hide with F3 screen", true)
+                .num("scale", "Global HUD scale", 1.0, 0.5, 2.0, 0.05)
+                .bool("followGuiScale", "Follow Minecraft GUI scale", false, "Off: the HUD keeps the same physical size at every vanilla GUI scale.")
+                .bool("autoPlace", "Avoid overlaps when enabling", true, "Newly enabled elements move to the nearest free spot.")
+                .bool("hideInDebug", "Hide with F3 screen", true)
                 .bool("hideInScreens", "Hide while menus are open", false).build());
         l.add(ModuleDef.builder("theme", "Theme", INTERFACE).system()
                 .desc("Accent and panel colours for everything Lock draws.").tags("color", "colour", "accent")

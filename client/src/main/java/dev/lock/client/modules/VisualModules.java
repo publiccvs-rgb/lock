@@ -7,6 +7,7 @@ import dev.lock.client.module.ClientModule;
 import dev.lock.client.module.HudModule;
 import dev.lock.client.render.Fmt;
 import dev.lock.client.render.Gfx;
+import dev.lock.client.render.LockFont;
 import dev.lock.core.config.Waypoint;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
@@ -175,36 +176,57 @@ public final class VisualModules {
 
         @Override public int[] size(Gfx gfx) {
             List<NotificationManager.Note> notes = notes();
-            if (notes.isEmpty()) return new int[]{110, 20};
-            int w = 90;
-            for (NotificationManager.Note n : notes) w = Math.max(w, Math.max(gfx.width(n.title()), gfx.width(n.message())) + 8);
-            return new int[]{w, notes.size() * 24 - 4};
+            if (notes.isEmpty()) return new int[]{120, 26};
+            int w = 110;
+            for (NotificationManager.Note n : notes)
+                w = Math.max(w, (int) Math.max(gfx.width(n.title(), 7.5f, LockFont.Weight.SEMIBOLD), gfx.width(n.message(), 7f, LockFont.Weight.REGULAR)) + 30);
+            return new int[]{w, notes.size() * 30 - 4};
         }
+
+        @Override public boolean ownBackground() { return true; }
 
         @Override public void draw(Gfx gfx, int w, int h) {
             List<NotificationManager.Note> notes = notes();
             if (notes.isEmpty()) {
-                gfx.fill(0, 0, 2, 20, lock.theme.accent());
-                gfx.text("Notifications", 6, 1, lock.theme.accent(), shadow());
-                gfx.text("Preview", 6, 11, textColor(), shadow());
+                card(gfx, 0, w, "info", lock.theme.accent(), "Notifications", "Preview", 1f, 0);
                 return;
             }
             long dur = (long) (n("duration") * 1000), now = System.currentTimeMillis();
             int y = 0;
-            float base = gfx.alpha;
             for (NotificationManager.Note n : notes) {
-                long left = dur - (now - n.time());
-                gfx.alpha = base * (left < 300 ? Math.max(0, left / 300f) : 1f);
-                int bar = switch (n.kind()) {
-                    case WARNING -> 0xFFF5B748;
+                long age = now - n.time(), left = dur - age;
+                float in = Math.min(1f, age / 180f), out = left < 250 ? Math.max(0, left / 250f) : 1f;
+                float ease = 1 - (1 - in) * (1 - in);
+                int color = switch (n.kind()) {
+                    case WARNING -> 0xFFE9A23B;
                     case ERROR -> 0xFFF2575F;
                     default -> lock.theme.accent();
                 };
-                gfx.fill(0, y, 2, y + 20, bar);
-                gfx.text(n.title(), 6, y + 1, bar, shadow());
-                gfx.text(n.message(), 6, y + 11, textColor(), shadow());
-                y += 24;
+                String icon = switch (n.kind()) {
+                    case WARNING, ERROR -> "info";
+                    case MODULE -> "check";
+                    case SYSTEM -> "bell";
+                    default -> "info";
+                };
+                boolean right = anchor().hx == 2;
+                card(gfx, y, w, icon, color, n.title(), n.message(), Math.min(ease, out), (int) ((1 - ease) * 24 * (right ? 1 : -1)));
+                if (left < dur) gfx.rrect(4, y + 24, Math.max(0, Math.round((w - 8) * (left / (float) dur))), 1, 0, ThemeManager.withAlpha(color, 0x90));
+                y += 30;
             }
+        }
+
+        private void card(Gfx gfx, int y, int w, String icon, int color, String title, String msg, float alpha, int dx) {
+            float base = gfx.alpha;
+            gfx.alpha = base * alpha;
+            gfx.push();
+            gfx.translate(dx, 0);
+            int r = i(dev.lock.core.module.ModuleDef.H_RADIUS);
+            gfx.rrect(0, y, w, 26, r, color(dev.lock.core.module.ModuleDef.H_BG_COLOR) | 0xE0000000);
+            gfx.circle(13, y + 13, 7.5f, ThemeManager.withAlpha(color, 0x38));
+            gfx.icon(icon, 9, y + 9, 8, color);
+            gfx.textMid(title, 25, y + 9, 7.5f, textColor(), LockFont.Weight.SEMIBOLD);
+            gfx.textMid(msg, 25, y + 18, 7f, ThemeManager.withAlpha(textColor(), 0xB0), LockFont.Weight.REGULAR);
+            gfx.pop();
             gfx.alpha = base;
         }
     }

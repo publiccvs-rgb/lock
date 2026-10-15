@@ -26,9 +26,16 @@ public final class Diagnostics {
 
     public int hooksApplied() { int n = 0; for (AgentContext.HookStatus h : lock.agent.hooks()) if (h.applied()) n++; return n; }
 
+    /** Hooks whose target class has not been loaded yet (e.g. the XP bar in creative mode): not an error. */
+    public int pendingHooks() {
+        int n = 0;
+        for (AgentContext.HookStatus h : lock.agent.hooks()) if (!h.applied() && h.detail().startsWith("pending")) n++;
+        return n;
+    }
+
     public List<AgentContext.HookStatus> failedHooks() {
         List<AgentContext.HookStatus> out = new ArrayList<>();
-        for (AgentContext.HookStatus h : lock.agent.hooks()) if (!h.applied()) out.add(h);
+        for (AgentContext.HookStatus h : lock.agent.hooks()) if (!h.applied() && !h.detail().startsWith("pending")) out.add(h);
         return out;
     }
 
@@ -37,7 +44,7 @@ public final class Diagnostics {
         compatibility.clear();
         compatibility.add("Minecraft " + lock.agent.minecraftVersion() + (lock.agent.minecraftVersion().equals("1.21.11") ? " (supported)" : " (UNSUPPORTED)"));
         compatibility.add("Java " + System.getProperty("java.version") + ", " + System.getProperty("os.arch"));
-        compatibility.add("Hooks applied: " + hooksApplied() + "/" + lock.agent.hooks().size());
+        compatibility.add("Hooks applied: " + hooksApplied() + "/" + lock.agent.hooks().size() + " (" + pendingHooks() + " waiting for their class to load)");
         for (AgentContext.HookStatus h : failedHooks()) compatibility.add("Hook not active: " + h.name() + " - " + h.detail());
         List<String> unbound = lock.modules.unbound();
         compatibility.add(unbound.isEmpty() ? "All catalog modules have implementations" : "Modules without implementation: " + unbound);

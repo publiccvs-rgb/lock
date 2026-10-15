@@ -86,6 +86,7 @@ public final class ModuleManager {
         if (on) faulted.remove(id);
         lock.config.changed();
         sync(m);
+        if (on && m instanceof HudModule h) lock.hud.requestPlacement(h);
         lock.notifications.module(m.def.name, on);
     }
 

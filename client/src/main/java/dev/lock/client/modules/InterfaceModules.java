@@ -5,6 +5,7 @@ import dev.lock.client.gui.LockScreen;
 import dev.lock.client.module.ClientModule;
 import dev.lock.client.module.HudModule;
 import dev.lock.client.render.Gfx;
+import dev.lock.client.render.LockFont;
 
 public final class InterfaceModules {
     private InterfaceModules() {}
@@ -20,15 +21,15 @@ public final class InterfaceModules {
     public static final class Watermark extends HudModule {
         public Watermark(LockClient l) { super(l, "watermark"); }
 
-        @Override public int[] size(Gfx gfx) { return new int[]{Math.round(gfx.width("lock.") * 1.5f * textScale()), Math.round(12 * textScale())}; }
+        private float size() { return 13f * textScale(); }
+
+        @Override public int[] size(Gfx gfx) {
+            return new int[]{(int) Math.ceil(gfx.width("lock.", size(), LockFont.Weight.SEMIBOLD)) + 1, Math.round(size() * 0.8f)};
+        }
 
         @Override public void draw(Gfx gfx, int w, int h) {
-            float s = 1.5f * textScale();
-            gfx.push();
-            gfx.scale(s);
-            int x = gfx.text("lock", 0, 0, textColor(), shadow());
-            gfx.text(".", x, 0, lock.theme.accent(), shadow());
-            gfx.pop();
+            float x = gfx.textMid("lock", 0, h / 2f, size(), textColor(), LockFont.Weight.SEMIBOLD);
+            gfx.textMid(".", x, h / 2f, size(), lock.theme.accent(), LockFont.Weight.SEMIBOLD);
         }
     }
 }

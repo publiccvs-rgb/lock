@@ -18,7 +18,45 @@ public final class HudManager {
 
     public HudManager(LockClient lock) { this.lock = lock; }
 
-    public float globalScale() { return (float) lock.config.state("hud_settings").num("scale"); }
+    public float globalScale() {
+        var st = lock.config.state("hud_settings");
+        float s = (float) st.num("scale");
+        if (!st.bool("followGuiScale")) s *= 2f / Math.max(1, net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale());
+        return s;
+    }
+
+    /** Elements enabled since the last frame that should be moved to a free spot once their size is known. */
+    private final java.util.Set<String> pendingPlacement = new java.util.HashSet<>();
+
+    public void requestPlacement(HudModule m) {
+        if (lock.config.state("hud_settings").bool("autoPlace")) pendingPlacement.add(m.def.id);
+    }
+
+    private boolean overlaps(HudModule m, int x, int y, int w, int h) {
+        for (HudModule o : lock.modules.huds()) {
+            if (o == m || !o.active() || o.lastW == 0) continue;
+            if (x < o.lastX + o.lastW + 2 && x + w + 2 > o.lastX && y < o.lastY + o.lastH + 2 && y + h + 2 > o.lastY) return true;
+        }
+        return false;
+    }
+
+    /** Finds the free position nearest to the element's current one, scanning down/up its column then across. */
+    private void place(HudModule m, int sw, int sh) {
+        if (!overlaps(m, m.lastX, m.lastY, m.lastW, m.lastH)) return;
+        int bestX = -1, bestY = -1;
+        double best = Double.MAX_VALUE;
+        for (int x = 0; x + m.lastW <= sw; x += 4) {
+            for (int y = 0; y + m.lastH <= sh; y += 2) {
+                double d = Math.hypot(x - m.lastX, (y - m.lastY) * 0.7);
+                if (d >= best) continue;
+                if (!overlaps(m, x, y, m.lastW, m.lastH)) { best = d; bestX = x; bestY = y; }
+            }
+        }
+        if (bestX >= 0) {
+            moveTo(m, bestX, bestY, sw, sh);
+            lock.config.changed();
+        }
+    }
 
     public double averageCostMicros() { return avgFrameNanos / 1000.0; }
 
@@ -34,6 +72,7 @@ public final class HudManager {
             }
             long e0 = System.nanoTime();
             m.editing = editor;
+            if (!editor && pendingPlacement.remove(m.def.id)) lock.modules.guard(m, "place", () -> { layout(gfx, m, sw, sh); place(m, sw, sh); });
             lock.modules.guard(m, "render", () -> drawElement(gfx, m, sw, sh));
             m.editing = false;
             m.lastRenderNanos = System.nanoTime() - e0;
@@ -69,8 +108,10 @@ public final class HudManager {
         gfx.translate(box[0], box[1]);
         gfx.scale(s);
         gfx.alpha = (float) st.num(ModuleDef.H_OPACITY);
-        if (st.bool(ModuleDef.H_BG)) gfx.round(0, 0, box[4], box[5], st.color(ModuleDef.H_BG_COLOR));
-        if (st.bool(ModuleDef.H_BORDER)) gfx.outline(0, 0, box[4], box[5], st.color(ModuleDef.H_BORDER_COLOR));
+        int r = st.integer(ModuleDef.H_RADIUS);
+        boolean bg = !m.ownBackground();
+        if (bg && st.bool(ModuleDef.H_BORDER)) gfx.rrect(-1, -1, box[4] + 2, box[5] + 2, r + 1, st.color(ModuleDef.H_BORDER_COLOR));
+        if (bg && st.bool(ModuleDef.H_BG)) gfx.rrect(0, 0, box[4], box[5], r, st.color(ModuleDef.H_BG_COLOR));
         int pad = m.padding();
         gfx.translate(pad, pad);
         m.draw(gfx, box[6], box[7]);
