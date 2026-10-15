@@ -10,6 +10,10 @@ public interface Gfx {
     void gradient(float x, float y, float w, float h, float tl, float tr, float br, float bl, int top, int bottom);
     void text(String s, float x, float y, int argb, float scale, boolean bold);
     float width(String s, float scale, boolean bold);
+    /** Translate then uniformly scale everything drawn until {@link #pop()}. */
+    void push(float x, float y, float scale);
+    void pop();
+    void tri(float x1, float y1, float x2, float y2, float x3, float y3, int argb);
     void clip(float x, float y, float w, float h);
     void unclip();
     /** Multiplies the alpha of everything drawn afterwards (used for fade in/out). */

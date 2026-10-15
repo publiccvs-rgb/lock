@@ -12,7 +12,8 @@
     "EntityRenderStateMixin",
     "CameraMixin",
     "GameRendererMixin",
-    "KeyboardInputMixin"
+    "KeyboardInputMixin",
+    "LevelMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

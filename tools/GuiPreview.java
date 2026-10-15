@@ -89,6 +89,17 @@ public final class GuiPreview {
                 fill(x0 + l, y0 + i, x0 + W - r, y0 + i + 1, lerp(top, bottom, (i + 0.5f) / H));
             }
         }
+        @Override public void push(float x, float y, float scale) {
+            saved.push(g.getTransform());
+            g.translate(x * S, y * S);
+            g.scale(scale, scale);
+        }
+        final ArrayDeque<java.awt.geom.AffineTransform> saved = new ArrayDeque<>();
+        @Override public void pop() { g.setTransform(saved.pop()); }
+        @Override public void tri(float x1, float y1, float x2, float y2, float x3, float y3, int argb) {
+            g.setColor(c(argb));
+            g.fillPolygon(new int[] {Math.round(x1 * S), Math.round(x2 * S), Math.round(x3 * S)}, new int[] {Math.round(y1 * S), Math.round(y2 * S), Math.round(y3 * S)}, 3);
+        }
         @Override public void clip(float x, float y, float w, float h) {
             Shape cur = g.getClip();
             clips.push(cur == null ? new Rectangle(0, 0, 1 << 14, 1 << 14) : cur);

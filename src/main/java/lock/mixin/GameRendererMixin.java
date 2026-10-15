@@ -12,7 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class GameRendererMixin {
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
     private void lock$fov(Camera camera, float partial, boolean useConfigured, CallbackInfoReturnable<Float> cir) {
-        if (Core.modules == null || !Core.modules.zoom.enabled()) return;
-        cir.setReturnValue((float) (cir.getReturnValueF() / Core.modules.zoom.current));
+        if (Core.modules == null) return;
+        double z = Core.modules.zoom.factor();
+        if (z > 1.001) cir.setReturnValue((float) (cir.getReturnValueF() / z));
     }
 }

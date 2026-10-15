@@ -21,7 +21,7 @@ import org.joml.Matrix4f;
  * width follows distance, so their thickness stays constant on screen.
  */
 public final class Draw {
-    private static RenderType type;
+    private static RenderType type, skyType;
     private static MultiBufferSource.BufferSource source;
     private static VertexConsumer vc;
     private static Matrix4f pose;
@@ -47,6 +47,38 @@ public final class Draw {
         return type;
     }
 
+    /** Depth-tested additive layer for the sky: hidden behind terrain and clouds, glows over the sky itself. */
+    private static RenderType skyType() {
+        if (skyType == null) {
+            RenderPipeline pipeline = RenderPipeline.builder()
+                .withLocation("pipeline/lock_sky")
+                .withVertexShader("core/position_color")
+                .withFragmentShader("core/position_color")
+                .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
+                .withUniform("Projection", UniformType.UNIFORM_BUFFER)
+                .withBlend(BlendFunction.ADDITIVE)
+                .withDepthWrite(false)
+                .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+                .withCull(false)
+                .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+                .build();
+            skyType = RenderType.create("lock_sky", RenderSetup.builder(pipeline).bufferSize(1 << 17).createRenderSetup());
+        }
+        return skyType;
+    }
+
+    public static void beginSky(Matrix4f view) {
+        pose = view;
+        source = Minecraft.getInstance().renderBuffers().bufferSource();
+        vc = source.getBuffer(skyType());
+    }
+
+    public static void endSky() {
+        if (source != null) source.endBatch(skyType());
+        vc = null;
+        source = null;
+    }
+
     public static void begin(Matrix4f view) {
         pose = view;
         source = Minecraft.getInstance().renderBuffers().bufferSource();
@@ -59,7 +91,7 @@ public final class Draw {
         source = null;
     }
 
-    private static void v(double x, double y, double z, int argb) {
+    public static void v(double x, double y, double z, int argb) {
         vc.addVertex(pose, (float) x, (float) y, (float) z).setColor(argb);
     }
 

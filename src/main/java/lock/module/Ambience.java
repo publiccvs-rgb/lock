@@ -4,8 +4,8 @@ import lock.setting.*;
 
 /** Replaces the look of the sky: aurora ribbons, nebula haze, stars; plus time and weather overrides. */
 public class Ambience extends Module {
-    public final BoolSetting sky = add(new BoolSetting("Sky", true)).d("Replaces the Overworld sky with an animated atmosphere.");
-    public final ModeSetting mode = add(new ModeSetting("Sky Mode", "Aurora", "Aurora", "Nebula", "Sunset Haze", "Storm Clouds", "Clear")).d("Aurora curtains, nebula haze, sunset glow or churning storm clouds.");
+    public final BoolSetting sky = add(new BoolSetting("Sky", true)).d("Draws the animated atmosphere over the Overworld sky at night.");
+    public final ModeSetting mode = add(new ModeSetting("Sky Mode", "Aurora", "Aurora", "Nebula", "Sunset Haze", "Clear")).d("Aurora curtains, wide nebula ribbons, a sunset horizon glow, or stars only.");
     public final ModeSetting colors = add(new ModeSetting("Aurora Colors", "Theme", "Theme", "Natural", "Ice", "Ember")).d("Menu accent colors or natural green-blue northern lights.");
     public final NumSetting intensity = add(new NumSetting("Sky Intensity", 1.0, 0.0, 2.0, 0.05)).d("Brightness of the sky glow and atmospheric detail.");
     public final NumSetting speed = add(new NumSetting("Sky Speed", 5.0, 0.0, 10.0, 0.5)).d("Controls ribbon and cloud movement. Zero freezes the sky.");

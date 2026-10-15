@@ -128,6 +128,31 @@ public final class McGfx implements Gfx {
         return w * scale;
     }
 
+    @Override public void push(float x, float y, float scale) {
+        var pose = g.pose();
+        pose.pushMatrix();
+        pose.translate(x, y);
+        pose.scale(scale, scale);
+    }
+
+    @Override public void pop() { g.pose().popMatrix(); }
+
+    /** Scanline triangle: one fill per row, good enough for 8-12 px pointers. */
+    @Override public void tri(float x1, float y1, float x2, float y2, float x3, float y3, int argb) {
+        argb = a(argb);
+        float minY = Math.min(y1, Math.min(y2, y3)), maxY = Math.max(y1, Math.max(y2, y3));
+        for (int y = (int) Math.floor(minY); y <= (int) Math.ceil(maxY); y++) {
+            float yc = y + 0.5f, lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
+            float[][] e = {{x1, y1, x2, y2}, {x2, y2, x3, y3}, {x3, y3, x1, y1}};
+            for (float[] k : e) {
+                if ((yc < Math.min(k[1], k[3])) || (yc > Math.max(k[1], k[3])) || k[1] == k[3]) continue;
+                float xx = k[0] + (yc - k[1]) * (k[2] - k[0]) / (k[3] - k[1]);
+                lo = Math.min(lo, xx); hi = Math.max(hi, xx);
+            }
+            if (hi > lo) g.fill(Math.round(lo), y, Math.round(hi), y + 1, argb);
+        }
+    }
+
     @Override public void clip(float x, float y, float w, float h) {
         g.enableScissor(Math.round(x), Math.round(y), Math.round(x + w), Math.round(y + h));
     }

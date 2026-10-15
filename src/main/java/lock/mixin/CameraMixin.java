@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Camera.class)
 public abstract class CameraMixin {
+    @org.spongepowered.asm.mixin.Shadow private boolean detached;
     @org.spongepowered.asm.mixin.gen.Invoker("setPosition") abstract void lock$setPos(double x, double y, double z);
     @org.spongepowered.asm.mixin.gen.Invoker("setRotation") abstract void lock$setRot(float yaw, float pitch);
 
@@ -21,7 +22,8 @@ public abstract class CameraMixin {
         if (Core.modules == null) return;
         Freecam f = Core.modules.freecam;
         if (!f.enabled() || !f.active) return;
-        lock$setPos(f.x, f.y, f.z);
+        lock$setPos(f.lx(partial), f.ly(partial), f.lz(partial));
         lock$setRot(f.yaw, f.pitch);
+        if (f.body.get()) this.detached = true;
     }
 }

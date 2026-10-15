@@ -30,6 +30,15 @@ public final class Projection {
         return new Vec3(d.x, d.y, d.z);
     }
 
+    /** Direction toward a point in normalized screen space (+x right, +y up); works for points behind the camera too. */
+    public static float[] edgeDir(Vec3 world) {
+        if (!ready) return null;
+        Vector4f p = new Vector4f((float) (world.x - cam.x), (float) (world.y - cam.y), (float) (world.z - cam.z), 1f);
+        viewProj.transform(p);
+        if (p.w > 0.05f) return new float[] {p.x / p.w, p.y / p.w};
+        return new float[] {-p.x, -p.y};
+    }
+
     /** GUI-scaled screen position, or null if behind the camera / far off-screen. */
     public static float[] toScreen(Vec3 world) { return toScreen(world, 1.3f); }
 
