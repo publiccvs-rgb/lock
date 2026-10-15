@@ -8,18 +8,19 @@ package lock.gui;
 final class Theme {
     private Theme() {}
 
-    // panel surfaces - flat, no gradient
-    static final int PANEL = 0xFF131313;
-    static final int HEADER = 0xFF161616;
-    static final int SIDEBAR = 0xFF121212;
-    static final int ROW_HOVER = 0xFF1C1C1C;
-    static final int INSET = 0xFF0D0D0D;
-    static final int FIELD = 0xFF1A1A1A;
-    static final int FIELD_HOVER = 0xFF202020;
-    static final int CHIP = 0xFF1E1E1E;
-    static final int TRACK = 0xFF2B2B2B;
-    static final int DIVIDER = 0xFF232323;
-    static final int TOGGLE_OFF = 0xFF2E2E2E;
+    // panel surfaces - flat, no gradient. #1A1A1A is the main GUI colour; everything else is that base
+    // shifted by the same deltas the old palette used, so depth/contrast relationships are unchanged.
+    static final int PANEL = 0xFF1A1A1A;
+    static final int HEADER = 0xFF1D1D1D;
+    static final int SIDEBAR = 0xFF191919;
+    static final int ROW_HOVER = 0xFF232323;
+    static final int INSET = 0xFF141414;
+    static final int FIELD = 0xFF212121;
+    static final int FIELD_HOVER = 0xFF272727;
+    static final int CHIP = 0xFF252525;
+    static final int TRACK = 0xFF323232;
+    static final int DIVIDER = 0xFF2A2A2A;
+    static final int TOGGLE_OFF = 0xFF353535;
 
     // text
     static final int TITLE = 0xFFF2F2F2;
@@ -36,7 +37,7 @@ final class Theme {
     static final String[] SCHEME_NAMES = {"Cobalt", "Mint", "Gold", "Fire", "Cherry", "Amethyst", "Watermelon", "Black"};
     static final int[] SCHEME_COLORS = {
         0x3B82F6, // Cobalt
-        0x1CE8A6, // Mint
+        0x01FFBE, // Mint
         0xE8B84B, // Gold
         0xFF7A3D, // Fire
         0xFF4D6D, // Cherry
