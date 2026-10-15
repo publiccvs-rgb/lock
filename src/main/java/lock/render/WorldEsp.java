@@ -2,7 +2,7 @@ package lock.render;
 
 import lock.Core;
 import lock.module.*;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -10,30 +10,29 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
 
-/** Everything that lives in world space: boxes, tracers, storage, items. */
+/** Everything that lives in world space for the entity/block ESP modules. */
 public final class WorldEsp {
     private WorldEsp() {}
 
-    public static void render(WorldRenderContext ctx) {
+    /** Called once per frame; owns the shared Draw batch for all world-space modules. */
+    public static void render(Camera camera, float pt, Matrix4f view, Matrix4f proj) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
         ModuleManager m = Core.modules;
-        Vec3 cam = ctx.camera().getPosition();
-        float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(true);
+        Vec3 cam = camera.position();
+        Projection.capture(proj, view, cam);
 
-        Projection.capture(ctx.projectionMatrix(), ctx.positionMatrix(), cam);
-
-        boolean any = m.boxes.enabled() || m.tracers.enabled() || m.storage.enabled() || m.items.enabled();
+        boolean any = m.boxes.enabled() || m.tracers.enabled() || m.storage.enabled() || m.items.enabled() || m.baseFinder.enabled();
         if (!any) return;
 
-        Draw.begin(ctx.positionMatrix());
+        Draw.begin(view);
         try {
-            Vec3 eye = ctx.camera().getLookVector() != null
-                ? new Vec3(ctx.camera().getLookVector()).scale(0.6)
-                : new Vec3(0, 0, 0.6);
+            Vec3 eye = Projection.look().scale(0.6);
 
             for (Entity e : mc.level.entitiesForRendering()) {
                 if (m.items.enabled() && e instanceof ItemEntity ie) { item(m.items, ie, cam, pt); continue; }
@@ -51,22 +50,18 @@ public final class WorldEsp {
                     Boxes b = m.boxes;
                     int c = Esp.color(e, b.color);
                     float px = b.thickness.f();
-                    // faint wide halo underneath the crisp line = cheap glow
                     Draw.box(bb, Colors.argb(c, 0.10f * fade), px * 3.2f, b.style.is("Corners"));
                     Draw.box(bb, Colors.argb(c, 0.85f * fade), px, b.style.is("Corners"));
                     if (b.fill.get()) Draw.fill(bb, Colors.argb(c, b.fillAlpha.f() * fade));
                 }
-
                 if (m.tracers.enabled() && (!m.tracers.playersOnly.get() || Esp.isPlayer(e))) {
                     Tracers t = m.tracers;
                     int c = Esp.color(e, t.color);
-                    Vec3 end = bb.getCenter();
-                    // fades in from nothing at the crosshair to full colour at the target
-                    Draw.line(eye, end, Colors.argb(c, 0f), Colors.argb(c, t.opacity.f() * fade), t.thickness.f());
+                    Draw.line(eye, bb.getCenter(), Colors.argb(c, 0f), Colors.argb(c, t.opacity.f() * fade), t.thickness.f());
                 }
             }
-
             if (m.storage.enabled()) storage(m.storage, mc, cam);
+            if (m.baseFinder.enabled()) m.baseFinder.renderWorld(cam, pt);
         } finally {
             Draw.end();
         }
@@ -78,7 +73,7 @@ public final class WorldEsp {
         int cx = mc.player.chunkPosition().x, cz = mc.player.chunkPosition().z;
         for (int dx = -cr; dx <= cr; dx++) {
             for (int dz = -cr; dz <= cr; dz++) {
-                var chunk = mc.level.getChunkSource().getChunkNow(cx + dx, cz + dz);
+                LevelChunk chunk = mc.level.getChunkSource().getChunkNow(cx + dx, cz + dz);
                 if (chunk == null) continue;
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
                     int rgb = s.colorFor(be);
@@ -110,7 +105,7 @@ public final class WorldEsp {
 
     /** Rough tiering by item id so the highlight colour means something at a glance. */
     private static int value(ItemStack st) {
-        String id = st.getItem().builtInRegistryHolder().key().location().getPath();
+        String id = st.getItem().builtInRegistryHolder().key().identifier().getPath();
         if (id.contains("netherite") || id.contains("elytra") || id.contains("totem") || id.contains("enchanted_golden_apple")) return 0xFF7AD9;
         if (id.contains("diamond") || id.contains("emerald") || id.contains("beacon")) return 0x7FE6FF;
         if (id.contains("gold") || id.contains("golden_apple") || id.contains("ender_pearl")) return 0xFFD479;

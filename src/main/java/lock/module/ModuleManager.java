@@ -18,14 +18,20 @@ public class ModuleManager {
     public final Charms charms = new Charms();
     public final Outlines outlines = new Outlines();
     public final StorageEsp storage = new StorageEsp();
-    public final Health health = new Health();
+    public final NameTags nameTags = new NameTags();
+    public final BaseFinder baseFinder = new BaseFinder();
+    public final Ambience ambience = new Ambience();
+    public final Freecam freecam = new Freecam();
+    public final Zoom zoom = new Zoom();
+    public final Glint glint = new Glint();
+    public final Arrows arrows = new Arrows();
     public final ItemEsp items = new ItemEsp();
     public final Fullbright fullbright = new Fullbright();
 
     /** Menu panel layout: id -> {x, y, collapsed(0/1)}. */
     public final Map<String, float[]> guiLayout = new LinkedHashMap<>();
 
-    public final List<Module> all = List.of(general, boxes, tracers, charms, outlines, storage, health, items, fullbright);
+    public final List<Module> all = List.of(general, boxes, tracers, charms, outlines, storage, nameTags, items, fullbright, baseFinder, ambience, freecam, zoom, glint, arrows);
 
     private final Path file = configFile();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();

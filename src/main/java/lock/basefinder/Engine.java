@@ -38,6 +38,8 @@ public final class Engine {
         Verdict v = new Verdict(s.cx, s.cz);
         v.scannedAt = System.nanoTime();
         v.sectionsTotal = s.sections;
+        v.minY = s.minY;
+        v.amethyst = s.amethyst;
         for (int i = 0; i < s.sections; i++) if (s.grp[i] != null) v.sectionsScanned++;
 
         // ---- 1. census ----

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "lock",
+  "version": "${version}",
+  "name": "lock.",
+  "description": "Minimal visual client.",
+  "environment": "client",
+  "entrypoints": { "client": ["lock.LockMod"] },
+  "mixins": ["lock.mixins.json"],
+  "accessWidener": "lock.accesswidener",
+  "depends": { "fabricloader": ">=0.18.0", "minecraft": "1.21.11", "java": ">=21" }
+}

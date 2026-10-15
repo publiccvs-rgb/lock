@@ -22,6 +22,8 @@ public final class ChunkSnapshot {
     /** Server WORLD_SURFACE heightmap: first free y above the highest non-air block, per column (z<<4|x); null if unknown. */
     public short[] serverSurface;
     public final List<Ent> entities = new ArrayList<>();
+    /** Amethyst markers: {x, y, z (world coords), grown(1)/budding-or-small(0)}. */
+    public final List<int[]> amethyst = new ArrayList<>();
     public int dimension;               // 0 overworld, 1 nether, 2 end
     public long gameTime;
 

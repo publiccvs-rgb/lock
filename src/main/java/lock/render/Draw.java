@@ -1,58 +1,86 @@
 package lock.render;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.*;
-import net.minecraft.client.renderer.CoreShaders;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 /**
- * Batched immediate-mode helper. All coordinates are camera-relative.
- * Lines are built as camera-facing quads whose width tracks distance, so thickness stays
- * constant on screen (and works on macOS, where GL line widths above 1 are unsupported).
+ * Batched world-space drawing through its own render pipeline (position+colour quads, alpha blended, no depth
+ * test so everything shows through walls). All coordinates are camera-relative. Lines are camera-facing quads whose
+ * width follows distance, so their thickness stays constant on screen.
  */
 public final class Draw {
-    private static BufferBuilder buf;
+    private static RenderType type;
+    private static MultiBufferSource.BufferSource source;
+    private static VertexConsumer vc;
     private static Matrix4f pose;
 
     private Draw() {}
 
-    public static void begin(Matrix4f poseMatrix) {
-        pose = poseMatrix;
-        buf = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableCull();
-        RenderSystem.depthMask(false);
-        RenderSystem.setShader(CoreShaders.POSITION_COLOR);
+    private static RenderType type() {
+        if (type == null) {
+            RenderPipeline pipeline = RenderPipeline.builder()
+                .withLocation("pipeline/lock_overlay")
+                .withVertexShader("core/position_color")
+                .withFragmentShader("core/position_color")
+                .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
+                .withUniform("Projection", UniformType.UNIFORM_BUFFER)
+                .withBlend(BlendFunction.TRANSLUCENT)
+                .withDepthWrite(false)
+                .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+                .withCull(false)
+                .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+                .build();
+            type = RenderType.create("lock_overlay", RenderSetup.builder(pipeline).bufferSize(1 << 17).createRenderSetup());
+        }
+        return type;
+    }
+
+    public static void begin(Matrix4f view) {
+        pose = view;
+        source = Minecraft.getInstance().renderBuffers().bufferSource();
+        vc = source.getBuffer(type());
     }
 
     public static void end() {
-        MeshData mesh = buf.build();
-        if (mesh != null) BufferUploader.drawWithShader(mesh);
-        buf = null;
-        RenderSystem.depthMask(true);
-        RenderSystem.enableCull();
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        if (source != null) source.endBatch(type());
+        vc = null;
+        source = null;
     }
 
     private static void v(double x, double y, double z, int argb) {
-        buf.addVertex(pose, (float) x, (float) y, (float) z).setColor(argb);
+        vc.addVertex(pose, (float) x, (float) y, (float) z).setColor(argb);
     }
 
-    /** Screen-constant-width line with a colour at each end (gradient). px = thickness in pixels. */
+    public static void quad(Vec3 a, Vec3 b, Vec3 c, Vec3 d, int argb) {
+        v(a.x, a.y, a.z, argb); v(b.x, b.y, b.z, argb); v(c.x, c.y, c.z, argb); v(d.x, d.y, d.z, argb);
+    }
+
+    /** Quad with a colour per corner (a, b, c, d in order). */
+    public static void quad(Vec3 a, Vec3 b, Vec3 c, Vec3 d, int ca, int cb, int cc, int cd) {
+        v(a.x, a.y, a.z, ca); v(b.x, b.y, b.z, cb); v(c.x, c.y, c.z, cc); v(d.x, d.y, d.z, cd);
+    }
+
+    /** Screen-constant-width line with a colour at each end. px = thickness in pixels. */
     public static void line(Vec3 a, Vec3 b, int ca, int cb, float px) {
         Vec3 d = b.subtract(a);
         Vec3 mid = a.add(b).scale(0.5);
         Vec3 side = d.cross(mid);
         if (side.lengthSqr() < 1e-10) return;
         side = side.normalize();
-        // ~0.0011 world units per pixel per metre of distance at the default 70 fov
-        double wa = px * 0.0011 * Math.max(a.length(), 0.5) * 0.5;
-        double wb = px * 0.0011 * Math.max(b.length(), 0.5) * 0.5;
+        double wa = px * 0.00115 * Math.max(a.length(), 0.5) * 0.5;
+        double wb = px * 0.00115 * Math.max(b.length(), 0.5) * 0.5;
         v(a.x - side.x * wa, a.y - side.y * wa, a.z - side.z * wa, ca);
         v(a.x + side.x * wa, a.y + side.y * wa, a.z + side.z * wa, ca);
         v(b.x + side.x * wb, b.y + side.y * wb, b.z + side.z * wb, cb);
@@ -74,7 +102,7 @@ public final class Draw {
         {0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}
     };
 
-    /** Wireframe; cornersOnly draws just the first/last fraction of each edge. */
+    /** Wireframe; cornersOnly draws just the end fraction of each edge. */
     public static void box(AABB bb, int argb, float px, boolean cornersOnly) {
         Vec3[] c = corners(bb);
         for (int[] e : EDGES) {
@@ -86,13 +114,11 @@ public final class Draw {
         }
     }
 
-    /** Translucent faces, slightly brighter toward the bottom for a grounded look. */
+    /** Translucent faces, brighter toward the top for a grounded look. */
     public static void fill(AABB bb, int argb) {
         Vec3[] c = corners(bb);
         int top = Colors.withAlpha(argb, 0.55f);
         int[][] faces = {{0, 1, 2, 3}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}};
-        for (int[] f : faces) {
-            for (int i : f) v(c[i].x, c[i].y, c[i].z, i < 4 ? argb : top);
-        }
+        for (int[] f : faces) for (int i : f) v(c[i].x, c[i].y, c[i].z, i < 4 ? argb : top);
     }
 }

@@ -40,6 +40,8 @@ public final class Verdict {
     /** Set by site clustering. */
     public int siteId = -1;
     public int neighborFlagged;
+    public int minY, planeBase;
+    public List<int[]> amethyst = List.of();
 
     public Verdict(int cx, int cz) { this.cx = cx; this.cz = cz; }
 

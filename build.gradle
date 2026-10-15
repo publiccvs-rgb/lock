@@ -4,21 +4,28 @@ plugins {
 
 version = project.mod_version
 group = 'lock'
+base { archivesName = 'lock' }
 
-// Loom is used purely to compile against the Mojang-named 1.21.11 API.
-// The shipped artifact is built by :injector, which remaps these classes to the runtime names.
+loom {
+    accessWidenerPath = file('src/main/resources/lock.accesswidener')
+    mixin {
+        useLegacyMixinAp = true
+        defaultRefmapName = 'lock-refmap.json'
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand 'version': project.version }
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
     options.encoding = 'UTF-8'
-}
-
-// Rendering/hook layers are mid-port to the 1.21.11 pipeline; keep them out of the build until then.
-sourceSets.main.java {
-    exclude 'lock/render/Draw.java', 'lock/render/WorldEsp.java', 'lock/render/HealthHud.java',
-            'lock/render/CharmLayers.java', 'lock/render/Projection.java', 'lock/agent/**'
 }
