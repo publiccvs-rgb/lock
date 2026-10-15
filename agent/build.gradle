@@ -1,0 +1,37 @@
+// The Lock runtime agent. Loaded by the JVM at game start via -javaagent (never attached later).
+// It packages core, mapping, ASM and the (Mojang-named) client classes, which it remaps at runtime.
+configurations {
+    clientClasses { canBeConsumed = false; canBeResolved = true }
+}
+
+dependencies {
+    implementation project(':core')
+    implementation project(':mapping')
+    implementation 'org.ow2.asm:asm:9.8'
+    implementation 'org.ow2.asm:asm-commons:9.8'
+    implementation 'org.ow2.asm:asm-tree:9.8'
+}
+
+evaluationDependsOn(':client')
+
+jar {
+    archiveBaseName = 'lock-agent'
+    manifest {
+        attributes(
+            'Premain-Class': 'dev.lock.agent.LockAgent',
+            'Can-Redefine-Classes': 'false',
+            'Can-Retransform-Classes': 'false',
+            'Implementation-Title': 'Lock',
+            'Implementation-Version': project.version
+        )
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } } {
+        exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/MANIFEST.MF', 'module-info.class', 'META-INF/versions/**'
+    }
+    // Client classes are stored under lock-client/ so the system class loader can never load them
+    // unremapped; the agent's ClientClassLoader remaps them to the game's obfuscated names.
+    from(project(':client').sourceSets.main.output.classesDirs) { into 'lock-client' }
+    from(project(':client').sourceSets.main.output.resourcesDir) { into 'lock-client' }
+    dependsOn ':client:classes'
+}

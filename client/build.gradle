@@ -1,0 +1,16 @@
+// In-game client, compiled against a Mojang-named copy of Minecraft (created by :mapping:setupMinecraft).
+// Its classes are packaged into the agent jar under lock-client/ and remapped at runtime; this module
+// produces no jar of its own and nothing from Minecraft is bundled.
+def mcDir = rootProject.file(".mc-dev/${rootProject.mcVersion}")
+
+dependencies {
+    implementation project(':core')
+    compileOnly files("${mcDir}/client-named.jar")
+    compileOnly fileTree(dir: "${mcDir}/libraries", include: '**/*.jar', exclude: '**/*natives*')
+}
+
+compileJava {
+    dependsOn ':mapping:setupMinecraft'
+}
+
+jar { enabled = false }

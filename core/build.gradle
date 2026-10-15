@@ -1,0 +1,2 @@
+// Pure-Java shared code: configuration model, module catalog, JSON, IPC protocol.
+// Must never reference Minecraft classes: it is loaded by both the launcher and the in-game runtime.

@@ -1,0 +1,24 @@
+allprojects {
+    group = 'dev.lock'
+    version = lockVersion
+    repositories {
+        maven { url 'https://repo1.maven.org/maven2/' }
+        maven { url 'https://libraries.minecraft.net/' }
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(21) }
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 21
+    }
+    dependencies {
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+}

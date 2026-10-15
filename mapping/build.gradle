@@ -1,0 +1,34 @@
+// Mojang (ProGuard) mappings parser and hierarchy-aware ASM remapper.
+// Used at build time to produce a readable compile-only Minecraft jar, and at runtime by the
+// agent to translate Lock's client classes onto the obfuscated game.
+dependencies {
+    implementation project(':core')
+    implementation 'org.ow2.asm:asm:9.8'
+    implementation 'org.ow2.asm:asm-commons:9.8'
+    implementation 'org.ow2.asm:asm-tree:9.8'
+}
+
+tasks.register('remapJar', JavaExec) {
+    description = 'Remaps an obfuscated Minecraft jar to Mojang names: -Pin=... -Pmappings=... -Pout=...'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.lock.mapping.RemapJar'
+    args = [project.findProperty('in') ?: '', project.findProperty('mappings') ?: '', project.findProperty('out') ?: '']
+}
+
+tasks.register('setupMinecraft', JavaExec) {
+    description = 'Downloads Minecraft, mappings and libraries for development and creates the named compile jar.'
+    group = 'lock'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.lock.mapping.DevSetup'
+    args = [rootProject.mcVersion, rootProject.file('.mc-dev').absolutePath]
+    outputs.file(rootProject.file(".mc-dev/${rootProject.mcVersion}/client-named.jar"))
+    outputs.file(rootProject.file(".mc-dev/${rootProject.mcVersion}/libraries.txt"))
+}
+
+tasks.register('setupMinecraftAssets', JavaExec) {
+    description = 'Also downloads game assets so tools/dev-run.sh can start the game.'
+    group = 'lock'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.lock.mapping.DevSetup'
+    args = [rootProject.mcVersion, rootProject.file('.mc-dev').absolutePath, '--assets']
+}
