@@ -224,8 +224,8 @@ public final class GuiView {
 
         g.text("lock", x + 10, y + 6.5f, 0xFFFFFFFF, 1.5f, true);
         g.text(".", x + 10 + g.width("lock", 1.5f, true), y + 6.5f, acc, 1.5f, true);
-        Icons.search(g, x + w - 34, y + 8, Theme.DIM);
-        Icons.gear(g, x + w - 19, y + 8, Theme.DIM);
+        Icons.search(g, x + w - 34, y + 8, Theme.DIM, Theme.SIDEBAR);
+        Icons.gear(g, x + w - 19, y + 8, Theme.DIM, Theme.SIDEBAR);
         g.rect(x + 8, y + 25, w - 16, 1, Theme.DIVIDER);
 
         float iy = y + 28;
@@ -233,7 +233,8 @@ public final class GuiView {
         for (int i = 0; i < 2; i++) {
             boolean hov = hoverPanel == p && inside(mx, my, x, iy, w, ROW);
             if (hov) g.rect(x, iy, w, ROW, Theme.ROW_HOVER);
-            if (i == 0) Icons.eye(g, x + 12, iy + 7, acc); else Icons.gear(g, x + 12, iy + 7, acc);
+            int rowBg = hov ? Theme.ROW_HOVER : Theme.SIDEBAR;
+            if (i == 0) Icons.eye(g, x + 12, iy + 7, acc, rowBg); else Icons.gear(g, x + 12, iy + 7, acc, rowBg);
             g.text(names[i], x + 30, iy + 7, acc, 0.95f, true);
             Icons.chevron(g, x + w - 14, iy + 9, 2, Theme.DIM);
             iy += ROW;
@@ -263,13 +264,13 @@ public final class GuiView {
         g.roundEx(x, y, p.w, HEAD, PR, PR, 0, 0, Theme.HEADER);
         g.rect(x, y + HEAD - 1, p.w, 1, Theme.DIVIDER);
         switch (p.id) {
-            case "render" -> Icons.eye(g, x + 11, y + 8, Theme.TITLE);
-            case "settings" -> Icons.gear(g, x + 10, y + 8, Theme.TITLE);
+            case "render" -> Icons.eye(g, x + 11, y + 8, Theme.TITLE, Theme.HEADER);
+            case "settings" -> Icons.gear(g, x + 10, y + 8, Theme.TITLE, Theme.HEADER);
             default -> Icons.list(g, x + 10, y + 8, Theme.TITLE);
         }
         g.text(p.title, x + 27, y + 8, Theme.TITLE, 0.98f, true);
         float cx = x + p.w - 16;
-        if (p == profiles) Icons.gear(g, cx - 22, y + 8, Theme.DIM);
+        if (p == profiles) Icons.gear(g, cx - 22, y + 8, Theme.DIM, Theme.HEADER);
         boolean over = hoverPanel == p && inside(mx, my, cx - 8, y, 24, HEAD);
         Icons.chevron(g, cx, y + 10f, p.expand.v > 0.5f ? -1 : 1, over ? Theme.TITLE : Theme.DIM);
     }
@@ -345,7 +346,8 @@ public final class GuiView {
             if (on > 0.004f) g.rect(x, y, 2.5f, ROW, Theme.alpha(Theme.brighten(acc, 0.3f), on));
 
             int ink = Theme.mix(Theme.TEXT, Theme.inkOn(acc), on);
-            drawModuleIcon(g, m.name, x + IN + 2, y + 6, Theme.mix(0xFF707070, ink, on));
+            int rowBg2 = on > 0.01f ? Theme.mix(Theme.PANEL, acc, on) : hv > 0.01f ? Theme.mix(Theme.PANEL, Theme.ROW_HOVER, hv) : Theme.PANEL;
+            drawModuleIcon(g, m.name, x + IN + 2, y + 6, Theme.mix(0xFF707070, ink, on), rowBg2);
             g.text(m.name, x + IN + 15, y + 7.5f, ink, 0.96f, on > 0.5f);
             int dotC = Theme.mix(0xFF7A7A7A, ink, on);
             float reveal = Math.max(hv, open * 0.8f);
@@ -374,15 +376,15 @@ public final class GuiView {
     }
 
     /** Per-module icon, matching the reference module list's icon-per-row treatment. */
-    private static void drawModuleIcon(Gfx g, String name, float x, float y, int c) {
+    private static void drawModuleIcon(Gfx g, String name, float x, float y, int c, int bg) {
         switch (name) {
             case "NameTags" -> Icons.nametag(g, x, y, c);
             case "Tracers" -> Icons.tracerLine(g, x, y, c);
             case "Fullbright" -> Icons.sun(g, x, y, c);
             case "StorageESP", "ItemESP" -> Icons.box(g, x, y, c);
             case "BaseFinder" -> Icons.grid(g, x + 1, y + 1, c);
-            case "Ambience" -> Icons.globe(g, x, y, c);
-            case "Settings" -> Icons.gear(g, x, y, c);
+            case "Ambience" -> Icons.globe(g, x, y, c, bg);
+            case "Settings" -> Icons.gear(g, x, y, c, bg);
             default -> Icons.person(g, x, y, c);
         }
     }
@@ -555,7 +557,7 @@ public final class GuiView {
         Icons.plusCircle(g, x + 14, by + 4, acc, Theme.inkOn(acc));
         g.text("CREATE NEW", x + 27, by + 5.6f, Theme.TEXT, 0.6f, true);
         g.round(x + 12 + bw, by, bw, 17, 3, Theme.FIELD);
-        Icons.globe(g, x + 18 + bw, by + 4, Theme.DIM);
+        Icons.globe(g, x + 18 + bw, by + 4, Theme.DIM, Theme.FIELD);
         g.text("PUBLIC", x + 32 + bw, by + 5.6f, Theme.TEXT, 0.6f, true);
 
         float ry = by + 17 + 7;
